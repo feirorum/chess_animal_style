@@ -1,0 +1,5 @@
+{
+  "capture_king_on_checkmate": false,
+  "animations_enabled": true,
+  "animation_duration": 4.5
+}

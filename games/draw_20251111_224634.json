@@ -1,0 +1,201 @@
+{
+  "board": [
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "type": "king",
+        "color": "black"
+      }
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "type": "queen",
+        "color": "white"
+      },
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "type": "pawn",
+        "color": "white"
+      },
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      {
+        "type": "pawn",
+        "color": "white"
+      },
+      {
+        "type": "pawn",
+        "color": "white"
+      },
+      {
+        "type": "pawn",
+        "color": "white"
+      },
+      {
+        "type": "pawn",
+        "color": "white"
+      },
+      {
+        "type": "pawn",
+        "color": "white"
+      },
+      null,
+      null,
+      {
+        "type": "pawn",
+        "color": "white"
+      }
+    ],
+    [
+      {
+        "type": "rook",
+        "color": "white"
+      },
+      {
+        "type": "knight",
+        "color": "white"
+      },
+      {
+        "type": "bishop",
+        "color": "white"
+      },
+      {
+        "type": "queen",
+        "color": "white"
+      },
+      {
+        "type": "king",
+        "color": "white"
+      },
+      {
+        "type": "bishop",
+        "color": "white"
+      },
+      {
+        "type": "knight",
+        "color": "white"
+      },
+      {
+        "type": "rook",
+        "color": "white"
+      }
+    ]
+  ],
+  "current_player": "black",
+  "move_history": [
+    "pF4",
+    "pE5",
+    "pxE5",
+    "pD5",
+    "pxD6",
+    "KD7",
+    "pxC7",
+    "QE8",
+    "pxB8",
+    "KE7",
+    "QxA8",
+    "BD7",
+    "QxE8",
+    "KF6",
+    "QxF8",
+    "pB5",
+    "QxG8",
+    "BE6",
+    "QxH8",
+    "pA5",
+    "QxH7",
+    "BD5",
+    "QxG7",
+    "KE7",
+    "QxF7",
+    "KD8",
+    "QxD5",
+    "KE8",
+    "QxB5",
+    "KF8",
+    "QxA5",
+    "KG8",
+    "QB6",
+    "KH7",
+    "QE6",
+    "KH8",
+    "QE7",
+    "KG8",
+    "pG4",
+    "KH8",
+    "QF7"
+  ],
+  "en_passant_target": null,
+  "castling_rights": {
+    "white": {
+      "kingside": true,
+      "queenside": true
+    },
+    "black": {
+      "kingside": false,
+      "queenside": false
+    }
+  },
+  "king_positions": {
+    "white": [
+      7,
+      4
+    ],
+    "black": [
+      0,
+      7
+    ]
+  },
+  "in_checkmate_capture_mode": false
+}
