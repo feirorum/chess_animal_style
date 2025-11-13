@@ -1,5 +1,6 @@
 import pygame
 import os
+import swedish_text as txt
 
 class ChessUI:
     def __init__(self, screen, board_size):
@@ -307,7 +308,7 @@ class ChessUI:
         pygame.draw.rect(self.screen, (150, 150, 200), menu_button, border_radius=5)
         pygame.draw.rect(self.screen, (0, 0, 0), menu_button, 2, border_radius=5)
 
-        text = self.font_small.render("Menu", True, (0, 0, 0))
+        text = self.font_small.render(txt.BUTTON_MENU, True, (0, 0, 0))
         text_x = button_x + (button_width - text.get_width()) // 2
         text_y = button_y + (button_height - text.get_height()) // 2
         self.screen.blit(text, (text_x, text_y))
@@ -452,7 +453,8 @@ class ChessUI:
 
     def draw_player_indicator(self, current_player):
         """Draw indicator for current player"""
-        text = f"Current: {current_player.capitalize()}"
+        color_name = txt.COLOR_WHITE if current_player == 'white' else txt.COLOR_BLACK
+        text = f"{txt.STATUS_CURRENT}: {color_name}"
         rendered = self.font_medium.render(text, True, (0, 0, 0))
         x = self.board_offset_x + self.board_size + 30
         y = self.board_offset_y + 50
@@ -467,21 +469,22 @@ class ChessUI:
             # Game is finished - show result
             if game.game_result == 'draw':
                 # Draw
-                status_text = "GAME OVER"
+                status_text = txt.STATUS_GAME_OVER
                 status_rendered = self.font_large.render(status_text, True, (255, 140, 0))
                 self.screen.blit(status_rendered, (x, y))
 
-                result_text = "Draw!"
+                result_text = txt.STATUS_DRAW
                 result_rendered = self.font_medium.render(result_text, True, (100, 100, 100))
                 self.screen.blit(result_rendered, (x, y + 70))
             elif game.game_result in ['white_won', 'black_won']:
                 # Someone won
                 winner = game.game_result.split('_')[0]
-                status_text = "GAME OVER"
+                color_name = txt.COLOR_WHITE if winner == 'white' else txt.COLOR_BLACK
+                status_text = txt.STATUS_GAME_OVER
                 status_rendered = self.font_large.render(status_text, True, (255, 0, 0))
                 self.screen.blit(status_rendered, (x, y))
 
-                winner_text = f"{winner.capitalize()} Wins!"
+                winner_text = f"{color_name.capitalize()} {txt.STATUS_WINS}"
                 winner_rendered = self.font_medium.render(winner_text, True, (0, 128, 0))
                 self.screen.blit(winner_rendered, (x, y + 70))
         else:
@@ -493,7 +496,7 @@ class ChessUI:
 
     def draw_check_indicator(self):
         """Draw indicator when in check"""
-        text = "CHECK!"
+        text = txt.STATUS_CHECK
         rendered = self.font_large.render(text, True, (255, 0, 0))
         x = self.board_offset_x + self.board_size + 30
         y = self.board_offset_y + 150
@@ -502,14 +505,15 @@ class ChessUI:
     def draw_checkmate_indicator(self, winner):
         """Draw checkmate indicator with winner"""
         # Draw "CHECKMATE" text
-        checkmate_text = "CHECKMATE"
+        checkmate_text = txt.STATUS_CHECKMATE
         checkmate_rendered = self.font_large.render(checkmate_text, True, (255, 0, 0))
         x = self.board_offset_x + self.board_size + 30
         y = self.board_offset_y + 50
         self.screen.blit(checkmate_rendered, (x, y))
 
         # Draw winner text
-        winner_text = f"{winner.capitalize()} Wins!"
+        color_name = txt.COLOR_WHITE if winner == 'white' else txt.COLOR_BLACK
+        winner_text = f"{color_name.capitalize()} {txt.STATUS_WINS}"
         winner_rendered = self.font_medium.render(winner_text, True, (0, 128, 0))
         y = self.board_offset_y + 120
         self.screen.blit(winner_rendered, (x, y))
@@ -556,7 +560,7 @@ class ChessUI:
         self.screen.blit(self.background, (0, 0))
 
         # Title (responsive positioning)
-        title = self.font_large.render("Animal Chess", True, (0, 0, 0))
+        title = self.font_large.render(txt.MENU_TITLE, True, (0, 0, 0))
         title_x = (self.screen.get_width() - title.get_width()) // 2
         title_y = int(self.screen.get_height() * 0.125)
         self.screen.blit(title, (title_x, title_y))
@@ -565,19 +569,20 @@ class ChessUI:
         buttons = []
         button_y_start = int(self.screen.get_height() * 0.3)
         button_spacing = max(60, int(self.screen.get_height() * 0.08))
-        button_width = min(300, int(self.screen.get_width() * 0.3))
+        button_width = min(350, int(self.screen.get_width() * 0.35))
         button_height = max(50, int(self.screen.get_height() * 0.06))
         button_x = (self.screen.get_width() - button_width) // 2
 
-        # Button labels
-        labels = ["Start New Game"]
+        # Button labels (in Swedish)
+        labels = [txt.MENU_START_NEW]
         if has_ongoing_game:
-            labels.insert(0, "Resume Game")
-            labels.append("Save Game")
-            labels.append("View Move History")
-        labels.append("Load Game")
-        labels.append("Options")
-        labels.append("Exit")
+            labels.insert(0, txt.MENU_RESUME)
+            labels.append(txt.MENU_SAVE)
+            labels.append(txt.MENU_HISTORY)
+        labels.append(txt.MENU_PROBLEMS)  # Add problems mode
+        labels.append(txt.MENU_LOAD)
+        labels.append(txt.MENU_OPTIONS)
+        labels.append(txt.MENU_EXIT)
 
         # Draw buttons
         for i, label in enumerate(labels):
@@ -614,7 +619,7 @@ class ChessUI:
         pygame.draw.rect(self.screen, (0, 0, 0), (box_x, box_y, box_width, box_height), 3, border_radius=10)
 
         # Title
-        title = self.font_medium.render("Choose Promotion Piece", True, (0, 0, 0))
+        title = self.font_medium.render(txt.PROMOTION_TITLE, True, (0, 0, 0))
         title_x = box_x + (box_width - title.get_width()) // 2
         self.screen.blit(title, (title_x, box_y + int(box_height * 0.1)))
 
@@ -666,12 +671,12 @@ class ChessUI:
         pygame.draw.rect(self.screen, (0, 0, 0), (box_x, box_y, box_width, box_height), 3, border_radius=10)
 
         # Title
-        title = self.font_medium.render("Save Game", True, (0, 0, 0))
+        title = self.font_medium.render(txt.SAVE_TITLE, True, (0, 0, 0))
         title_x = box_x + (box_width - title.get_width()) // 2
         self.screen.blit(title, (title_x, box_y + 30))
 
         # Instruction
-        instruction = self.font_small.render("Enter game name (or leave empty for default):", True, (0, 0, 0))
+        instruction = self.font_small.render(txt.SAVE_INSTRUCTION, True, (0, 0, 0))
         instruction_x = box_x + (box_width - instruction.get_width()) // 2
         self.screen.blit(instruction, (instruction_x, box_y + 80))
 
@@ -698,13 +703,13 @@ class ChessUI:
         # Draw save button
         pygame.draw.rect(self.screen, (100, 200, 100), save_button, border_radius=5)
         pygame.draw.rect(self.screen, (0, 0, 0), save_button, 2, border_radius=5)
-        save_text = self.font_small.render("Save", True, (0, 0, 0))
+        save_text = self.font_small.render(txt.SAVE_BUTTON, True, (0, 0, 0))
         self.screen.blit(save_text, (save_button.centerx - save_text.get_width() // 2, save_button.centery - save_text.get_height() // 2))
 
         # Draw cancel button
         pygame.draw.rect(self.screen, (200, 100, 100), cancel_button, border_radius=5)
         pygame.draw.rect(self.screen, (0, 0, 0), cancel_button, 2, border_radius=5)
-        cancel_text = self.font_small.render("Cancel", True, (0, 0, 0))
+        cancel_text = self.font_small.render(txt.CANCEL_BUTTON, True, (0, 0, 0))
         self.screen.blit(cancel_text, (cancel_button.centerx - cancel_text.get_width() // 2, cancel_button.centery - cancel_text.get_height() // 2))
 
         return {'input_rect': input_rect, 'save_button': save_button, 'cancel_button': cancel_button}
@@ -726,7 +731,7 @@ class ChessUI:
         pygame.draw.rect(self.screen, (0, 0, 0), (box_x, box_y, box_width, box_height), 3, border_radius=10)
 
         # Title
-        title = self.font_medium.render("Load Game", True, (0, 0, 0))
+        title = self.font_medium.render(txt.LOAD_TITLE, True, (0, 0, 0))
         title_x = box_x + (box_width - title.get_width()) // 2
         self.screen.blit(title, (title_x, box_y + 30))
 
@@ -737,7 +742,7 @@ class ChessUI:
         item_spacing = max(8, int(box_height * 0.02))
 
         if not saved_games:
-            no_games_text = self.font_small.render("No saved games found", True, (100, 100, 100))
+            no_games_text = self.font_small.render(txt.NO_SAVED_GAMES, True, (100, 100, 100))
             text_x = box_x + (box_width - no_games_text.get_width()) // 2
             self.screen.blit(no_games_text, (text_x, list_start_y + int(box_height * 0.1)))
         else:
@@ -764,7 +769,7 @@ class ChessUI:
         cancel_button = pygame.Rect(box_x + (box_width - cancel_button_width) // 2, box_y + box_height - int(box_height * 0.12) - cancel_button_height, cancel_button_width, cancel_button_height)
         pygame.draw.rect(self.screen, (200, 100, 100), cancel_button, border_radius=5)
         pygame.draw.rect(self.screen, (0, 0, 0), cancel_button, 2, border_radius=5)
-        cancel_text = self.font_small.render("Cancel", True, (0, 0, 0))
+        cancel_text = self.font_small.render(txt.CANCEL_BUTTON, True, (0, 0, 0))
         self.screen.blit(cancel_text, (cancel_button.centerx - cancel_text.get_width() // 2, cancel_button.centery - cancel_text.get_height() // 2))
 
         return {'game_buttons': game_buttons, 'cancel_button': cancel_button}
@@ -774,7 +779,7 @@ class ChessUI:
         self.screen.blit(self.background, (0, 0))
 
         # Title
-        title = self.font_large.render("Move History", True, (0, 0, 0))
+        title = self.font_large.render(txt.HISTORY_TITLE, True, (0, 0, 0))
         title_x = (self.screen.get_width() - title.get_width()) // 2
         title_y = int(self.screen.get_height() * 0.08)
         self.screen.blit(title, (title_x, title_y))
@@ -796,9 +801,9 @@ class ChessUI:
 
         # Header text
         col_width = table_width // 3
-        move_num_text = self.font_medium.render("#", True, (0, 0, 0))
-        white_text = self.font_medium.render("White", True, (0, 0, 0))
-        black_text = self.font_medium.render("Black", True, (0, 0, 0))
+        move_num_text = self.font_medium.render(txt.HISTORY_MOVE_NUM, True, (0, 0, 0))
+        white_text = self.font_medium.render(txt.HISTORY_WHITE, True, (0, 0, 0))
+        black_text = self.font_medium.render(txt.HISTORY_BLACK, True, (0, 0, 0))
 
         self.screen.blit(move_num_text, (table_x + col_width // 2 - move_num_text.get_width() // 2, table_y + (header_height - move_num_text.get_height()) // 2))
         self.screen.blit(white_text, (table_x + col_width + col_width // 2 - white_text.get_width() // 2, table_y + (header_height - white_text.get_height()) // 2))
@@ -806,7 +811,7 @@ class ChessUI:
 
         # Draw moves
         if not move_history:
-            no_moves_text = self.font_small.render("No moves yet", True, (100, 100, 100))
+            no_moves_text = self.font_small.render(txt.HISTORY_NO_MOVES, True, (100, 100, 100))
             text_x = table_x + (table_width - no_moves_text.get_width()) // 2
             text_y = table_y + header_height + int(table_height * 0.1)
             self.screen.blit(no_moves_text, (text_x, text_y))
@@ -849,13 +854,13 @@ class ChessUI:
                     self.screen.blit(black_text, (table_x + 2 * col_width + col_width // 2 - black_text.get_width() // 2, y))
 
         # Back button
-        button_width = min(200, int(self.screen.get_width() * 0.15))
+        button_width = min(250, int(self.screen.get_width() * 0.18))
         button_height = max(40, int(self.screen.get_height() * 0.05))
         back_button = pygame.Rect((self.screen.get_width() - button_width) // 2, table_y + table_height + 20, button_width, button_height)
         pygame.draw.rect(self.screen, (100, 200, 100), back_button, border_radius=10)
         pygame.draw.rect(self.screen, (0, 0, 0), back_button, 3, border_radius=10)
 
-        back_text = self.font_medium.render("Back to Menu", True, (0, 0, 0))
+        back_text = self.font_medium.render(txt.HISTORY_BACK, True, (0, 0, 0))
         self.screen.blit(back_text, (back_button.centerx - back_text.get_width() // 2, back_button.centery - back_text.get_height() // 2))
 
         return back_button
@@ -865,7 +870,7 @@ class ChessUI:
         self.screen.blit(self.background, (0, 0))
 
         # Title
-        title = self.font_large.render("Game Options", True, (0, 0, 0))
+        title = self.font_large.render(txt.OPTIONS_TITLE, True, (0, 0, 0))
         title_x = (self.screen.get_width() - title.get_width()) // 2
         title_y = int(self.screen.get_height() * 0.1)
         self.screen.blit(title, (title_x, title_y))
@@ -900,88 +905,119 @@ class ChessUI:
         pygame.draw.rect(self.screen, (0, 0, 0), toggle_rect, 3, border_radius=15)
         self.screen.blit(toggle_text, (toggle_rect.centerx - toggle_text.get_width() // 2, toggle_rect.centery - toggle_text.get_height() // 2))
 
-        # Option label
-        label = self.font_medium.render("Capture King on Checkmate", True, (0, 0, 0))
+        # Option label (in Swedish)
+        label = self.font_medium.render(txt.OPTIONS_CAPTURE_KING, True, (0, 0, 0))
         self.screen.blit(label, (box_x + 30, option_y))
 
-        # Option description
+        # Option description (in Swedish)
         desc_y = option_y + 35
-        desc_lines = [
-            "When enabled, the game continues after checkmate.",
-            "The player can move another piece or pass."
-        ]
+        desc_lines = [txt.OPTIONS_CAPTURE_KING_DESC1, txt.OPTIONS_CAPTURE_KING_DESC2]
         for i, line in enumerate(desc_lines):
             desc_text = self.font_small.render(line, True, (80, 80, 80))
             self.screen.blit(desc_text, (box_x + 30, desc_y + i * 22))
 
-        # Option 2: Animations Enabled
+        # Option 2: Game Mode (1/2 players)
         option_y += option_spacing
-        toggle_y = option_y - 10
-        animations_toggle_rect = pygame.Rect(toggle_x, toggle_y, toggle_size, 30)
+        label = self.font_medium.render(txt.OPTIONS_PLAYERS, True, (0, 0, 0))
+        self.screen.blit(label, (box_x + 30, option_y))
 
-        # Draw toggle
-        if options.animations_enabled:
-            pygame.draw.rect(self.screen, (100, 200, 100), animations_toggle_rect, border_radius=15)
-            toggle_text = self.font_small.render("ON", True, (0, 0, 0))
+        # Game mode buttons
+        button_y = option_y + 35
+        mode_1p_button = pygame.Rect(box_x + 30, button_y, 80, 30)
+        mode_2p_button = pygame.Rect(box_x + 120, button_y, 80, 30)
+
+        # 1 player button
+        color_1p = (100, 200, 100) if options.game_mode == '1_player' else (200, 200, 200)
+        pygame.draw.rect(self.screen, color_1p, mode_1p_button, border_radius=5)
+        pygame.draw.rect(self.screen, (0, 0, 0), mode_1p_button, 2, border_radius=5)
+        text_1p = self.font_small.render(txt.OPTIONS_1_PLAYER, True, (0, 0, 0))
+        self.screen.blit(text_1p, (mode_1p_button.centerx - text_1p.get_width() // 2, mode_1p_button.centery - text_1p.get_height() // 2))
+
+        # 2 players button
+        color_2p = (100, 200, 100) if options.game_mode == '2_player' else (200, 200, 200)
+        pygame.draw.rect(self.screen, color_2p, mode_2p_button, border_radius=5)
+        pygame.draw.rect(self.screen, (0, 0, 0), mode_2p_button, 2, border_radius=5)
+        text_2p = self.font_small.render(txt.OPTIONS_2_PLAYERS, True, (0, 0, 0))
+        self.screen.blit(text_2p, (mode_2p_button.centerx - text_2p.get_width() // 2, mode_2p_button.centery - text_2p.get_height() // 2))
+
+        # Option 3: Player Color (only for 1 player mode)
+        option_y += option_spacing
+        if options.game_mode == '1_player':
+            label = self.font_medium.render(txt.OPTIONS_PLAYER_COLOR, True, (0, 0, 0))
+            self.screen.blit(label, (box_x + 30, option_y))
+
+            button_y = option_y + 35
+            color_white_button = pygame.Rect(box_x + 30, button_y, 80, 30)
+            color_black_button = pygame.Rect(box_x + 120, button_y, 80, 30)
+
+            # White button
+            color_w = (100, 200, 100) if options.player_color == 'white' else (200, 200, 200)
+            pygame.draw.rect(self.screen, color_w, color_white_button, border_radius=5)
+            pygame.draw.rect(self.screen, (0, 0, 0), color_white_button, 2, border_radius=5)
+            text_w = self.font_small.render(txt.COLOR_WHITE.capitalize(), True, (0, 0, 0))
+            self.screen.blit(text_w, (color_white_button.centerx - text_w.get_width() // 2, color_white_button.centery - text_w.get_height() // 2))
+
+            # Black button
+            color_b = (100, 200, 100) if options.player_color == 'black' else (200, 200, 200)
+            pygame.draw.rect(self.screen, color_b, color_black_button, border_radius=5)
+            pygame.draw.rect(self.screen, (0, 0, 0), color_black_button, 2, border_radius=5)
+            text_b = self.font_small.render(txt.COLOR_BLACK.capitalize(), True, (0, 0, 0))
+            self.screen.blit(text_b, (color_black_button.centerx - text_b.get_width() // 2, color_black_button.centery - text_b.get_height() // 2))
+
+            # AI Skill Level
+            option_y += option_spacing
+            label = self.font_medium.render(txt.OPTIONS_AI_LEVEL, True, (0, 0, 0))
+            self.screen.blit(label, (box_x + 30, option_y))
+
+            button_y = option_y + 35
+            ai_easy_button = pygame.Rect(box_x + 30, button_y, 80, 30)
+            ai_med_button = pygame.Rect(box_x + 120, button_y, 80, 30)
+            ai_hard_button = pygame.Rect(box_x + 210, button_y, 80, 30)
+
+            # Easy button
+            color_easy = (100, 200, 100) if options.ai_skill_level == 'easy' else (200, 200, 200)
+            pygame.draw.rect(self.screen, color_easy, ai_easy_button, border_radius=5)
+            pygame.draw.rect(self.screen, (0, 0, 0), ai_easy_button, 2, border_radius=5)
+            text_easy = self.font_small.render(txt.OPTIONS_AI_EASY, True, (0, 0, 0))
+            self.screen.blit(text_easy, (ai_easy_button.centerx - text_easy.get_width() // 2, ai_easy_button.centery - text_easy.get_height() // 2))
+
+            # Medium button
+            color_med = (100, 200, 100) if options.ai_skill_level == 'medium' else (200, 200, 200)
+            pygame.draw.rect(self.screen, color_med, ai_med_button, border_radius=5)
+            pygame.draw.rect(self.screen, (0, 0, 0), ai_med_button, 2, border_radius=5)
+            text_med = self.font_small.render(txt.OPTIONS_AI_MEDIUM, True, (0, 0, 0))
+            self.screen.blit(text_med, (ai_med_button.centerx - text_med.get_width() // 2, ai_med_button.centery - text_med.get_height() // 2))
+
+            # Hard button
+            color_hard = (100, 200, 100) if options.ai_skill_level == 'hard' else (200, 200, 200)
+            pygame.draw.rect(self.screen, color_hard, ai_hard_button, border_radius=5)
+            pygame.draw.rect(self.screen, (0, 0, 0), ai_hard_button, 2, border_radius=5)
+            text_hard = self.font_small.render(txt.OPTIONS_AI_HARD, True, (0, 0, 0))
+            self.screen.blit(text_hard, (ai_hard_button.centerx - text_hard.get_width() // 2, ai_hard_button.centery - text_hard.get_height() // 2))
         else:
-            pygame.draw.rect(self.screen, (200, 100, 100), animations_toggle_rect, border_radius=15)
-            toggle_text = self.font_small.render("OFF", True, (0, 0, 0))
-
-        pygame.draw.rect(self.screen, (0, 0, 0), animations_toggle_rect, 3, border_radius=15)
-        self.screen.blit(toggle_text, (animations_toggle_rect.centerx - toggle_text.get_width() // 2, animations_toggle_rect.centery - toggle_text.get_height() // 2))
-
-        # Label
-        label = self.font_medium.render("Capture Animations", True, (0, 0, 0))
-        self.screen.blit(label, (box_x + 30, option_y))
-
-        # Description
-        desc_y = option_y + 35
-        desc_text = self.font_small.render("Show happy animations when pieces capture.", True, (80, 80, 80))
-        self.screen.blit(desc_text, (box_x + 30, desc_y))
-
-        # Option 3: Animation Duration
-        option_y += option_spacing
-        label = self.font_medium.render("Animation Duration", True, (0, 0, 0))
-        self.screen.blit(label, (box_x + 30, option_y))
-
-        # Description
-        desc_y = option_y + 35
-        desc_text = self.font_small.render(f"How long animations last: {options.animation_duration:.1f} seconds", True, (80, 80, 80))
-        self.screen.blit(desc_text, (box_x + 30, desc_y))
-
-        # Duration control buttons
-        button_y = desc_y + 30
-        minus_button = pygame.Rect(box_x + 30, button_y, 40, 30)
-        plus_button = pygame.Rect(box_x + 80, button_y, 40, 30)
-
-        # Draw minus button
-        pygame.draw.rect(self.screen, (200, 150, 150), minus_button, border_radius=5)
-        pygame.draw.rect(self.screen, (0, 0, 0), minus_button, 2, border_radius=5)
-        minus_text = self.font_medium.render("-", True, (0, 0, 0))
-        self.screen.blit(minus_text, (minus_button.centerx - minus_text.get_width() // 2, minus_button.centery - minus_text.get_height() // 2))
-
-        # Draw plus button
-        pygame.draw.rect(self.screen, (150, 200, 150), plus_button, border_radius=5)
-        pygame.draw.rect(self.screen, (0, 0, 0), plus_button, 2, border_radius=5)
-        plus_text = self.font_medium.render("+", True, (0, 0, 0))
-        self.screen.blit(plus_text, (plus_button.centerx - plus_text.get_width() // 2, plus_button.centery - plus_text.get_height() // 2))
+            color_white_button = color_black_button = None
+            ai_easy_button = ai_med_button = ai_hard_button = None
 
         # Back button
-        button_width = min(200, int(self.screen.get_width() * 0.15))
+        button_width = min(250, int(self.screen.get_width() * 0.18))
         button_height = max(40, int(self.screen.get_height() * 0.05))
         back_button = pygame.Rect((self.screen.get_width() - button_width) // 2, box_y + box_height + 20, button_width, button_height)
         pygame.draw.rect(self.screen, (100, 200, 100), back_button, border_radius=10)
         pygame.draw.rect(self.screen, (0, 0, 0), back_button, 3, border_radius=10)
 
-        back_text = self.font_medium.render("Back to Menu", True, (0, 0, 0))
+        back_text = self.font_medium.render(txt.OPTIONS_BACK, True, (0, 0, 0))
         self.screen.blit(back_text, (back_button.centerx - back_text.get_width() // 2, back_button.centery - back_text.get_height() // 2))
 
         return {
             'back_button': back_button,
             'toggle_button': toggle_rect,
-            'animations_toggle': animations_toggle_rect,
-            'duration_minus': minus_button,
-            'duration_plus': plus_button
+            'mode_1p_button': mode_1p_button,
+            'mode_2p_button': mode_2p_button,
+            'color_white_button': color_white_button,
+            'color_black_button': color_black_button,
+            'ai_easy_button': ai_easy_button,
+            'ai_med_button': ai_med_button,
+            'ai_hard_button': ai_hard_button
         }
 
     def draw_pass_button(self):
@@ -995,7 +1031,119 @@ class ChessUI:
         pygame.draw.rect(self.screen, (200, 150, 100), pass_button, border_radius=10)
         pygame.draw.rect(self.screen, (0, 0, 0), pass_button, 3, border_radius=10)
 
-        pass_text = self.font_medium.render("Pass Turn", True, (0, 0, 0))
+        pass_text = self.font_medium.render(txt.STATUS_PASS_TURN, True, (0, 0, 0))
         self.screen.blit(pass_text, (pass_button.centerx - pass_text.get_width() // 2, pass_button.centery - pass_text.get_height() // 2))
 
         return pass_button
+
+    def draw_problems_menu(self, problems):
+        """Draw the chess problems selection menu"""
+        from chess_problems import CHESS_PROBLEMS
+
+        self.screen.blit(self.background, (0, 0))
+
+        # Title
+        title = self.font_large.render(txt.PROBLEMS_TITLE, True, (0, 0, 0))
+        title_x = (self.screen.get_width() - title.get_width()) // 2
+        title_y = int(self.screen.get_height() * 0.08)
+        self.screen.blit(title, (title_x, title_y))
+
+        # Subtitle
+        subtitle = self.font_medium.render(txt.PROBLEMS_SELECT, True, (0, 0, 0))
+        subtitle_x = (self.screen.get_width() - subtitle.get_width()) // 2
+        self.screen.blit(subtitle, (subtitle_x, title_y + 60))
+
+        # Problem buttons
+        button_y_start = int(self.screen.get_height() * 0.25)
+        button_spacing = max(80, int(self.screen.get_height() * 0.1))
+        button_width = min(600, int(self.screen.get_width() * 0.6))
+        button_height = max(70, int(self.screen.get_height() * 0.08))
+        button_x = (self.screen.get_width() - button_width) // 2
+
+        problem_buttons = []
+        for i, problem in enumerate(CHESS_PROBLEMS[:5]):  # Show first 5 problems
+            y = button_y_start + i * button_spacing
+            button_rect = pygame.Rect(button_x, y, button_width, button_height)
+            problem_buttons.append({'problem': problem, 'rect': button_rect})
+
+            # Draw button
+            pygame.draw.rect(self.screen, (150, 180, 220), button_rect, border_radius=10)
+            pygame.draw.rect(self.screen, (0, 0, 0), button_rect, 3, border_radius=10)
+
+            # Draw problem title
+            title_text = self.font_medium.render(problem['title'], True, (0, 0, 0))
+            self.screen.blit(title_text, (button_x + 15, y + 10))
+
+            # Draw objective and difficulty
+            obj_text = self.font_small.render(f"{txt.PROBLEMS_OBJECTIVE}: {problem['objective']}", True, (50, 50, 50))
+            self.screen.blit(obj_text, (button_x + 15, y + 40))
+
+            diff_text = problem['difficulty']
+            diff_label = {'easy': txt.PROBLEMS_EASY, 'medium': txt.PROBLEMS_MEDIUM, 'hard': txt.PROBLEMS_HARD}[diff_text]
+            diff_rendered = self.font_small.render(f"{txt.PROBLEMS_DIFFICULTY}: {diff_label}", True, (100, 50, 150))
+            self.screen.blit(diff_rendered, (button_x + button_width - 150, y + 10))
+
+        # Back button
+        button_width_back = min(250, int(self.screen.get_width() * 0.18))
+        button_height_back = max(50, int(self.screen.get_height() * 0.06))
+        back_button = pygame.Rect((self.screen.get_width() - button_width_back) // 2,
+                                   button_y_start + 5 * button_spacing + 20,
+                                   button_width_back, button_height_back)
+        pygame.draw.rect(self.screen, (200, 100, 100), back_button, border_radius=10)
+        pygame.draw.rect(self.screen, (0, 0, 0), back_button, 3, border_radius=10)
+
+        back_text = self.font_medium.render(txt.PROBLEMS_BACK, True, (0, 0, 0))
+        self.screen.blit(back_text, (back_button.centerx - back_text.get_width() // 2,
+                                     back_button.centery - back_text.get_height() // 2))
+
+        return {'problem_buttons': problem_buttons, 'back_button': back_button}
+
+    def draw_problem_objective(self, problem):
+        """Draw the current problem's objective on the side"""
+        x = self.board_offset_x + self.board_size + 30
+        y = self.board_offset_y + 200
+
+        # Objective box
+        box_width = 250
+        box_height = 150
+        pygame.draw.rect(self.screen, (255, 255, 220), (x, y, box_width, box_height), border_radius=10)
+        pygame.draw.rect(self.screen, (0, 0, 0), (x, y, box_width, box_height), 2, border_radius=10)
+
+        # Title
+        title = self.font_medium.render(txt.PROBLEMS_OBJECTIVE, True, (0, 0, 0))
+        self.screen.blit(title, (x + 10, y + 10))
+
+        # Objective text (wrap if needed)
+        obj_lines = self.wrap_text(problem['objective'], box_width - 20, self.font_small)
+        for i, line in enumerate(obj_lines):
+            text = self.font_small.render(line, True, (50, 50, 50))
+            self.screen.blit(text, (x + 10, y + 45 + i * 25))
+
+        # Hint if available
+        if 'hint' in problem:
+            hint_label = self.font_small.render(f"{txt.PROBLEMS_HINT}:", True, (100, 100, 100))
+            self.screen.blit(hint_label, (x + 10, y + 100))
+            hint_lines = self.wrap_text(problem['hint'], box_width - 20, self.font_small)
+            for i, line in enumerate(hint_lines):
+                text = self.font_small.render(line, True, (120, 120, 120))
+                self.screen.blit(text, (x + 10, y + 120 + i * 20))
+
+    def wrap_text(self, text, max_width, font):
+        """Wrap text to fit within max_width"""
+        words = text.split(' ')
+        lines = []
+        current_line = []
+
+        for word in words:
+            test_line = ' '.join(current_line + [word])
+            if font.size(test_line)[0] <= max_width:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(' '.join(current_line))
+                current_line = [word]
+
+        if current_line:
+            lines.append(' '.join(current_line))
+
+        return lines

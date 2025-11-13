@@ -1,5 +1,8 @@
 {
   "capture_king_on_checkmate": false,
   "animations_enabled": true,
-  "animation_duration": 4.5
+  "animation_duration": 4.5,
+  "game_mode": "2_player",
+  "player_color": "white",
+  "ai_skill_level": "medium"
 }

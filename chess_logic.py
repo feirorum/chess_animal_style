@@ -3,6 +3,7 @@ import pygame
 import json
 import os
 from datetime import datetime
+import swedish_text as txt
 
 class GameOptions:
     """Manages game options and settings"""
@@ -12,6 +13,9 @@ class GameOptions:
         self.capture_king_on_checkmate = False  # OFF by default
         self.animations_enabled = True  # ON by default
         self.animation_duration = 4.5  # 4.5 seconds by default
+        self.game_mode = '2_player'  # '1_player' or '2_player'
+        self.player_color = 'white'  # 'white' or 'black' (for 1-player mode)
+        self.ai_skill_level = 'medium'  # 'easy', 'medium', or 'hard'
         self.load_options()
 
     def load_options(self):
@@ -23,18 +27,27 @@ class GameOptions:
                     self.capture_king_on_checkmate = data.get('capture_king_on_checkmate', False)
                     self.animations_enabled = data.get('animations_enabled', True)
                     self.animation_duration = data.get('animation_duration', 4.5)
+                    self.game_mode = data.get('game_mode', '2_player')
+                    self.player_color = data.get('player_color', 'white')
+                    self.ai_skill_level = data.get('ai_skill_level', 'medium')
         except:
             # If file doesn't exist or is corrupted, use defaults
             self.capture_king_on_checkmate = False
             self.animations_enabled = True
             self.animation_duration = 4.5
+            self.game_mode = '2_player'
+            self.player_color = 'white'
+            self.ai_skill_level = 'medium'
 
     def save_options(self):
         """Save options to file"""
         data = {
             'capture_king_on_checkmate': self.capture_king_on_checkmate,
             'animations_enabled': self.animations_enabled,
-            'animation_duration': self.animation_duration
+            'animation_duration': self.animation_duration,
+            'game_mode': self.game_mode,
+            'player_color': self.player_color,
+            'ai_skill_level': self.ai_skill_level
         }
         with open(self.OPTIONS_FILE, 'w') as f:
             json.dump(data, f, indent=2)
@@ -52,6 +65,21 @@ class GameOptions:
     def set_animation_duration(self, duration):
         """Set animation duration in seconds"""
         self.animation_duration = max(1.0, min(10.0, duration))  # Clamp between 1 and 10 seconds
+        self.save_options()
+
+    def set_game_mode(self, mode):
+        """Set game mode ('1_player' or '2_player')"""
+        self.game_mode = mode
+        self.save_options()
+
+    def set_player_color(self, color):
+        """Set player color for 1-player mode ('white' or 'black')"""
+        self.player_color = color
+        self.save_options()
+
+    def set_ai_skill_level(self, level):
+        """Set AI skill level ('easy', 'medium', or 'hard')"""
+        self.ai_skill_level = level
         self.save_options()
 
 class ChessGame:
@@ -346,23 +374,23 @@ class ChessGame:
         piece = self.board[from_row][from_col]
 
         if not piece or piece['color'] != self.current_player:
-            return {'valid': False, 'reason': 'Not your piece!'}
+            return {'valid': False, 'reason': txt.ERROR_NOT_YOUR_PIECE}
 
         # In checkmate capture mode, skip check validation
         if self.in_checkmate_capture_mode:
             valid_moves = self.get_valid_moves(from_row, from_col)
             if (to_row, to_col) not in valid_moves:
-                return {'valid': False, 'reason': 'Invalid move for this piece'}
+                return {'valid': False, 'reason': txt.ERROR_INVALID_MOVE}
         # Check if in check
         elif self.is_in_check(self.current_player):
             # Must block or move out of check
             if not self.is_legal_move(from_row, from_col, to_row, to_col):
-                return {'valid': False, 'reason': 'You are in check! You must block or move the king.'}
+                return {'valid': False, 'reason': txt.ERROR_IN_CHECK}
 
             # Check if move is in valid moves
             valid_moves = self.get_valid_moves(from_row, from_col)
             if (to_row, to_col) not in valid_moves:
-                return {'valid': False, 'reason': 'You are in check! You must block or move the king.'}
+                return {'valid': False, 'reason': txt.ERROR_IN_CHECK}
         else:
             # Normal move validation
             valid_moves = self.get_valid_moves(from_row, from_col)
@@ -370,10 +398,10 @@ class ChessGame:
                 # Determine specific reason
                 if piece['type'] == 'king' and abs(to_col - from_col) == 2:
                     if to_col > from_col:
-                        return {'valid': False, 'reason': 'Cannot castle kingside: square is threatened or path is blocked'}
+                        return {'valid': False, 'reason': txt.ERROR_CASTLE_KINGSIDE}
                     else:
-                        return {'valid': False, 'reason': 'Cannot castle queenside: square is threatened or path is blocked'}
-                return {'valid': False, 'reason': 'Invalid move for this piece'}
+                        return {'valid': False, 'reason': txt.ERROR_CASTLE_QUEENSIDE}
+                return {'valid': False, 'reason': txt.ERROR_INVALID_MOVE}
 
         # Special move handling
         is_castling = piece['type'] == 'king' and abs(to_col - from_col) == 2
@@ -593,11 +621,11 @@ class ChessGame:
         """Pass the turn to the other player (only allowed in special mode when in checkmate)"""
         # Only allow passing in special mode and when in checkmate capture mode
         if not self.options.capture_king_on_checkmate or not self.in_checkmate_capture_mode:
-            return {'valid': False, 'reason': 'Passing is only allowed in special mode after checkmate'}
+            return {'valid': False, 'reason': txt.ERROR_PASS_ONLY_SPECIAL}
 
         # Only allow passing when player has no valid moves
         if self.has_any_valid_moves(self.current_player):
-            return {'valid': False, 'reason': 'You can only pass when you have no legal moves'}
+            return {'valid': False, 'reason': txt.ERROR_PASS_ONLY_NO_MOVES}
 
         self.current_player = 'black' if self.current_player == 'white' else 'white'
         self.move_history.append("Pass")

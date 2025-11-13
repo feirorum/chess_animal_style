@@ -2,6 +2,10 @@ import pygame
 import sys
 from chess_logic import ChessGame, GameOptions
 from ui import ChessUI
+from chess_ai import ChessAI
+from chess_problems import CHESS_PROBLEMS
+import swedish_text as txt
+import copy
 
 # Initialize Pygame
 pygame.init()
@@ -24,11 +28,13 @@ STATE_SAVE_INPUT = "save_input"
 STATE_LOAD_GAME = "load_game"
 STATE_MOVE_HISTORY = "move_history"
 STATE_OPTIONS = "options"
+STATE_PROBLEMS_MENU = "problems_menu"
+STATE_SOLVING_PROBLEM = "solving_problem"
 
 def main():
     # Create window (resizable)
     screen = pygame.display.set_mode((WINDOW_WIDTH, WINDOW_HEIGHT), pygame.RESIZABLE)
-    pygame.display.set_caption("Animal Chess")
+    pygame.display.set_caption(txt.MENU_TITLE)
     clock = pygame.time.Clock()
 
     # Calculate initial board size based on window dimensions
@@ -40,9 +46,16 @@ def main():
     # Game options
     options = GameOptions()
 
+    # AI opponent
+    ai = ChessAI(options.ai_skill_level)
+
     # Game state
     game = None
     current_state = STATE_MENU
+
+    # Chess problems state
+    current_problem = None
+    problem_game = None
 
     # Game loop variables
     dragging = False
@@ -79,21 +92,23 @@ def main():
                         if button['rect'].collidepoint(mouse_pos):
                             label = button['label']
 
-                            if label == "Start New Game":
+                            if label == txt.MENU_START_NEW:
                                 game = ChessGame(options)
                                 current_state = STATE_PLAYING
-                            elif label == "Resume Game":
+                            elif label == txt.MENU_RESUME:
                                 current_state = STATE_PLAYING
-                            elif label == "Save Game":
+                            elif label == txt.MENU_SAVE:
                                 save_name_input = ""
                                 current_state = STATE_SAVE_INPUT
-                            elif label == "Load Game":
+                            elif label == txt.MENU_LOAD:
                                 current_state = STATE_LOAD_GAME
-                            elif label == "View Move History":
+                            elif label == txt.MENU_HISTORY:
                                 current_state = STATE_MOVE_HISTORY
-                            elif label == "Options":
+                            elif label == txt.MENU_PROBLEMS:
+                                current_state = STATE_PROBLEMS_MENU
+                            elif label == txt.MENU_OPTIONS:
                                 current_state = STATE_OPTIONS
-                            elif label == "Exit":
+                            elif label == txt.MENU_EXIT:
                                 running = False
 
             # Playing state events
@@ -171,26 +186,43 @@ def main():
                                 if result.get('continue_play'):
                                     # Capture king mode: game continues (flag already set in game object)
                                     color = result['in_check']
-                                    ui.show_violation_popup(f"Checkmate! {color.capitalize()} is in check. Can move another piece or pass, then king can be captured.")
+                                    color_name = txt.COLOR_WHITE if color == 'white' else txt.COLOR_BLACK
+                                    ui.show_violation_popup(txt.OUTCOME_CHECKMATE_CONTINUE.format(color=color_name))
                                 else:
                                     # Normal mode: game ends
                                     winner = result['winner']
-                                    ui.show_violation_popup(f"Checkmate! {winner.capitalize()} wins!")
+                                    color_name = txt.COLOR_WHITE if winner == 'white' else txt.COLOR_BLACK
+                                    ui.show_violation_popup(txt.OUTCOME_CHECKMATE_WINS.format(color=color_name.capitalize()))
                             elif result.get('king_captured'):
                                 # King was captured - game over (always a capture, trigger celebration)
                                 ui.trigger_celebration(to_row, to_col, options)
                                 winner = result['winner']
-                                ui.show_violation_popup(f"King captured! {winner.capitalize()} wins!")
+                                color_name = txt.COLOR_WHITE if winner == 'white' else txt.COLOR_BLACK
+                                ui.show_violation_popup(txt.OUTCOME_KING_CAPTURED.format(color=color_name.capitalize()))
                             elif result.get('stalemate'):
                                 # If this was a valid capture, trigger celebration
                                 if is_capture:
                                     ui.trigger_celebration(to_row, to_col, options)
                                 # Show stalemate message
-                                ui.show_violation_popup("Stalemate! It's a draw - nobody wins or loses!")
+                                ui.show_violation_popup(txt.OUTCOME_STALEMATE)
                             else:
                                 # Regular move - if this was a capture, trigger celebration
                                 if is_capture:
                                     ui.trigger_celebration(to_row, to_col, options)
+
+                                # In 1-player mode, trigger AI move if it's AI's turn
+                                if options.game_mode == '1_player' and game.game_status == 'ongoing':
+                                    ai_color = 'black' if options.player_color == 'white' else 'white'
+                                    if game.current_player == ai_color:
+                                        # AI makes a move
+                                        pygame.time.wait(500)  # Brief pause for better UX
+                                        ai_move = ai.get_best_move(game)
+                                        if ai_move:
+                                            ai_from_row, ai_from_col, ai_to_row, ai_to_col = ai_move
+                                            ai_result = game.make_move(ai_from_row, ai_from_col, ai_to_row, ai_to_col)
+                                            if ai_result.get('promotion'):
+                                                # AI always promotes to queen
+                                                game.promote_pawn(ai_to_row, ai_to_col, 'queen')
 
                         dragging = False
                         selected_piece = None
@@ -282,12 +314,111 @@ def main():
                         current_state = STATE_MENU
                     elif option_elements['toggle_button'].collidepoint(mouse_pos):
                         options.toggle_capture_king()
-                    elif option_elements['animations_toggle'].collidepoint(mouse_pos):
-                        options.toggle_animations()
-                    elif option_elements['duration_minus'].collidepoint(mouse_pos):
-                        options.set_animation_duration(options.animation_duration - 0.5)
-                    elif option_elements['duration_plus'].collidepoint(mouse_pos):
-                        options.set_animation_duration(options.animation_duration + 0.5)
+                    elif option_elements['mode_1p_button'].collidepoint(mouse_pos):
+                        options.set_game_mode('1_player')
+                    elif option_elements['mode_2p_button'].collidepoint(mouse_pos):
+                        options.set_game_mode('2_player')
+                    elif option_elements.get('color_white_button') and option_elements['color_white_button'].collidepoint(mouse_pos):
+                        options.set_player_color('white')
+                    elif option_elements.get('color_black_button') and option_elements['color_black_button'].collidepoint(mouse_pos):
+                        options.set_player_color('black')
+                    elif option_elements.get('ai_easy_button') and option_elements['ai_easy_button'].collidepoint(mouse_pos):
+                        options.set_ai_skill_level('easy')
+                        ai.skill_level = 'easy'
+                    elif option_elements.get('ai_med_button') and option_elements['ai_med_button'].collidepoint(mouse_pos):
+                        options.set_ai_skill_level('medium')
+                        ai.skill_level = 'medium'
+                    elif option_elements.get('ai_hard_button') and option_elements['ai_hard_button'].collidepoint(mouse_pos):
+                        options.set_ai_skill_level('hard')
+                        ai.skill_level = 'hard'
+
+            # Problems menu state events
+            elif current_state == STATE_PROBLEMS_MENU:
+                if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
+                    menu_elements = ui.draw_problems_menu(CHESS_PROBLEMS)
+                    if menu_elements['back_button'].collidepoint(mouse_pos):
+                        current_state = STATE_MENU
+                    else:
+                        for button in menu_elements['problem_buttons']:
+                            if button['rect'].collidepoint(mouse_pos):
+                                # Start solving this problem
+                                current_problem = button['problem']
+                                problem_game = ChessGame(options)
+                                # Set up the board from the problem
+                                problem_game.board = copy.deepcopy(current_problem['board'])
+                                problem_game.current_player = current_problem['player_color']
+                                if current_problem['king_positions']['white']:
+                                    problem_game.king_positions['white'] = current_problem['king_positions']['white']
+                                if current_problem['king_positions']['black']:
+                                    problem_game.king_positions['black'] = current_problem['king_positions']['black']
+                                problem_game.move_history = []
+                                current_state = STATE_SOLVING_PROBLEM
+                                break
+
+            # Solving problem state events
+            elif current_state == STATE_SOLVING_PROBLEM:
+                if event.type == pygame.MOUSEBUTTONDOWN:
+                    if event.button == 1:  # Left click
+                        # Check menu button
+                        menu_button = ui.draw_menu_button()
+                        if menu_button.collidepoint(mouse_pos):
+                            current_state = STATE_PROBLEMS_MENU
+                            problem_game = None
+                            current_problem = None
+                            dragging = False
+                            selected_piece = None
+                            drag_pos = None
+                            continue
+
+                        # Handle piece selection (only if game is ongoing)
+                        if problem_game.game_status == 'ongoing':
+                            square = ui.get_square_from_pos(mouse_pos)
+                            if square:
+                                row, col = square
+                                piece = problem_game.board[row][col]
+
+                                # Check if clicked piece belongs to current player
+                                if piece and piece['color'] == problem_game.current_player:
+                                    dragging = True
+                                    selected_piece = (row, col)
+                                    drag_pos = mouse_pos
+
+                elif event.type == pygame.MOUSEMOTION:
+                    if dragging:
+                        drag_pos = pygame.mouse.get_pos()
+
+                elif event.type == pygame.MOUSEBUTTONUP:
+                    if event.button == 1 and dragging and problem_game.game_status == 'ongoing':
+                        target_square = ui.get_square_from_pos(mouse_pos)
+
+                        if target_square and selected_piece:
+                            from_row, from_col = selected_piece
+                            to_row, to_col = target_square
+
+                            # Attempt to make the move
+                            result = problem_game.make_move(from_row, from_col, to_row, to_col)
+
+                            if not result['valid']:
+                                ui.show_violation_popup(result['reason'])
+                            elif result.get('promotion'):
+                                promotion_position = result['position']
+                                promotion_color = result['color']
+                                current_state = STATE_PROMOTION
+                            elif result.get('checkmate') or result.get('stalemate'):
+                                # Problem solved!
+                                ui.show_violation_popup(txt.PROBLEMS_SOLVED)
+
+                            # AI makes opponent move in problem mode
+                            if problem_game.game_status == 'ongoing' and problem_game.current_player != current_problem['player_color']:
+                                pygame.time.wait(500)
+                                ai_move = ai.get_best_move(problem_game)
+                                if ai_move:
+                                    ai_from_row, ai_from_col, ai_to_row, ai_to_col = ai_move
+                                    problem_game.make_move(ai_from_row, ai_from_col, ai_to_row, ai_to_col)
+
+                        dragging = False
+                        selected_piece = None
+                        drag_pos = None
 
         # Draw based on current state
         if current_state == STATE_MENU:
@@ -333,6 +464,24 @@ def main():
         elif current_state == STATE_OPTIONS:
             # Draw options screen
             ui.draw_options(options)
+
+        elif current_state == STATE_PROBLEMS_MENU:
+            # Draw problems menu
+            ui.draw_problems_menu(CHESS_PROBLEMS)
+
+        elif current_state == STATE_SOLVING_PROBLEM:
+            # Get valid moves for selected piece
+            valid_moves = []
+            if selected_piece and problem_game:
+                row, col = selected_piece
+                valid_moves = problem_game.get_valid_moves(row, col)
+
+            # Draw problem game
+            if problem_game:
+                ui.draw(problem_game, selected_piece, drag_pos, valid_moves)
+                # Draw problem objective
+                if current_problem:
+                    ui.draw_problem_objective(current_problem)
 
         # Update display
         pygame.display.flip()
