@@ -214,8 +214,17 @@ def main():
                                 if options.game_mode == '1_player' and game.game_status == 'ongoing':
                                     ai_color = 'black' if options.player_color == 'white' else 'white'
                                     if game.current_player == ai_color:
-                                        # AI makes a move
-                                        pygame.time.wait(500)  # Brief pause for better UX
+                                        # AI makes a move (delay based on skill level)
+                                        # Level 1-2: 100ms, Level 3-5: 250ms, Level 6-8: 400ms, Level 9-10: 600ms
+                                        if options.ai_skill_level <= 2:
+                                            delay = 100
+                                        elif options.ai_skill_level <= 5:
+                                            delay = 250
+                                        elif options.ai_skill_level <= 8:
+                                            delay = 400
+                                        else:
+                                            delay = 600
+                                        pygame.time.wait(delay)
                                         ai_move = ai.get_best_move(game)
                                         if ai_move:
                                             ai_from_row, ai_from_col, ai_to_row, ai_to_col = ai_move
@@ -322,15 +331,14 @@ def main():
                         options.set_player_color('white')
                     elif option_elements.get('color_black_button') and option_elements['color_black_button'].collidepoint(mouse_pos):
                         options.set_player_color('black')
-                    elif option_elements.get('ai_easy_button') and option_elements['ai_easy_button'].collidepoint(mouse_pos):
-                        options.set_ai_skill_level('easy')
-                        ai.skill_level = 'easy'
-                    elif option_elements.get('ai_med_button') and option_elements['ai_med_button'].collidepoint(mouse_pos):
-                        options.set_ai_skill_level('medium')
-                        ai.skill_level = 'medium'
-                    elif option_elements.get('ai_hard_button') and option_elements['ai_hard_button'].collidepoint(mouse_pos):
-                        options.set_ai_skill_level('hard')
-                        ai.skill_level = 'hard'
+                    elif option_elements.get('ai_minus_button') and option_elements['ai_minus_button'].collidepoint(mouse_pos):
+                        new_level = max(1, options.ai_skill_level - 1)
+                        options.set_ai_skill_level(new_level)
+                        ai.skill_level = new_level
+                    elif option_elements.get('ai_plus_button') and option_elements['ai_plus_button'].collidepoint(mouse_pos):
+                        new_level = min(10, options.ai_skill_level + 1)
+                        options.set_ai_skill_level(new_level)
+                        ai.skill_level = new_level
 
             # Problems menu state events
             elif current_state == STATE_PROBLEMS_MENU:
@@ -410,7 +418,8 @@ def main():
 
                             # AI makes opponent move in problem mode
                             if problem_game.game_status == 'ongoing' and problem_game.current_player != current_problem['player_color']:
-                                pygame.time.wait(500)
+                                # Use level 5 (medium) for problem solving
+                                pygame.time.wait(300)
                                 ai_move = ai.get_best_move(problem_game)
                                 if ai_move:
                                     ai_from_row, ai_from_col, ai_to_row, ai_to_col = ai_move

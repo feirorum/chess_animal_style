@@ -15,7 +15,7 @@ class GameOptions:
         self.animation_duration = 4.5  # 4.5 seconds by default
         self.game_mode = '2_player'  # '1_player' or '2_player'
         self.player_color = 'white'  # 'white' or 'black' (for 1-player mode)
-        self.ai_skill_level = 'medium'  # 'easy', 'medium', or 'hard'
+        self.ai_skill_level = 5  # 1-10 (1=easiest/fastest, 10=hardest/slowest)
         self.load_options()
 
     def load_options(self):
@@ -29,7 +29,11 @@ class GameOptions:
                     self.animation_duration = data.get('animation_duration', 4.5)
                     self.game_mode = data.get('game_mode', '2_player')
                     self.player_color = data.get('player_color', 'white')
-                    self.ai_skill_level = data.get('ai_skill_level', 'medium')
+                    # Convert old string levels to numeric
+                    ai_level = data.get('ai_skill_level', 5)
+                    if isinstance(ai_level, str):
+                        ai_level = {'easy': 3, 'medium': 6, 'hard': 9}.get(ai_level, 5)
+                    self.ai_skill_level = max(1, min(10, ai_level))
         except:
             # If file doesn't exist or is corrupted, use defaults
             self.capture_king_on_checkmate = False
@@ -37,7 +41,7 @@ class GameOptions:
             self.animation_duration = 4.5
             self.game_mode = '2_player'
             self.player_color = 'white'
-            self.ai_skill_level = 'medium'
+            self.ai_skill_level = 5
 
     def save_options(self):
         """Save options to file"""
@@ -78,8 +82,8 @@ class GameOptions:
         self.save_options()
 
     def set_ai_skill_level(self, level):
-        """Set AI skill level ('easy', 'medium', or 'hard')"""
-        self.ai_skill_level = level
+        """Set AI skill level (1-10)"""
+        self.ai_skill_level = max(1, min(10, level))
         self.save_options()
 
 class ChessGame:

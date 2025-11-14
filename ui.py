@@ -964,39 +964,37 @@ class ChessUI:
             text_b = self.font_small.render(txt.COLOR_BLACK.capitalize(), True, (0, 0, 0))
             self.screen.blit(text_b, (color_black_button.centerx - text_b.get_width() // 2, color_black_button.centery - text_b.get_height() // 2))
 
-            # AI Skill Level
+            # AI Skill Level (1-10)
             option_y += option_spacing
             label = self.font_medium.render(txt.OPTIONS_AI_LEVEL, True, (0, 0, 0))
             self.screen.blit(label, (box_x + 30, option_y))
 
+            # Current level and description
             button_y = option_y + 35
-            ai_easy_button = pygame.Rect(box_x + 30, button_y, 80, 30)
-            ai_med_button = pygame.Rect(box_x + 120, button_y, 80, 30)
-            ai_hard_button = pygame.Rect(box_x + 210, button_y, 80, 30)
+            level = options.ai_skill_level
+            level_desc = txt.OPTIONS_AI_LEVELS.get(level, "")
+            desc_text = self.font_small.render(txt.OPTIONS_AI_LEVEL_DESC.format(level=level, desc=level_desc), True, (80, 80, 80))
+            self.screen.blit(desc_text, (box_x + 30, button_y))
 
-            # Easy button
-            color_easy = (100, 200, 100) if options.ai_skill_level == 'easy' else (200, 200, 200)
-            pygame.draw.rect(self.screen, color_easy, ai_easy_button, border_radius=5)
-            pygame.draw.rect(self.screen, (0, 0, 0), ai_easy_button, 2, border_radius=5)
-            text_easy = self.font_small.render(txt.OPTIONS_AI_EASY, True, (0, 0, 0))
-            self.screen.blit(text_easy, (ai_easy_button.centerx - text_easy.get_width() // 2, ai_easy_button.centery - text_easy.get_height() // 2))
+            # +/- buttons
+            button_y += 35
+            ai_minus_button = pygame.Rect(box_x + 30, button_y, 40, 30)
+            ai_plus_button = pygame.Rect(box_x + 80, button_y, 40, 30)
 
-            # Medium button
-            color_med = (100, 200, 100) if options.ai_skill_level == 'medium' else (200, 200, 200)
-            pygame.draw.rect(self.screen, color_med, ai_med_button, border_radius=5)
-            pygame.draw.rect(self.screen, (0, 0, 0), ai_med_button, 2, border_radius=5)
-            text_med = self.font_small.render(txt.OPTIONS_AI_MEDIUM, True, (0, 0, 0))
-            self.screen.blit(text_med, (ai_med_button.centerx - text_med.get_width() // 2, ai_med_button.centery - text_med.get_height() // 2))
+            # Minus button
+            pygame.draw.rect(self.screen, (200, 150, 150), ai_minus_button, border_radius=5)
+            pygame.draw.rect(self.screen, (0, 0, 0), ai_minus_button, 2, border_radius=5)
+            minus_text = self.font_medium.render("-", True, (0, 0, 0))
+            self.screen.blit(minus_text, (ai_minus_button.centerx - minus_text.get_width() // 2, ai_minus_button.centery - minus_text.get_height() // 2))
 
-            # Hard button
-            color_hard = (100, 200, 100) if options.ai_skill_level == 'hard' else (200, 200, 200)
-            pygame.draw.rect(self.screen, color_hard, ai_hard_button, border_radius=5)
-            pygame.draw.rect(self.screen, (0, 0, 0), ai_hard_button, 2, border_radius=5)
-            text_hard = self.font_small.render(txt.OPTIONS_AI_HARD, True, (0, 0, 0))
-            self.screen.blit(text_hard, (ai_hard_button.centerx - text_hard.get_width() // 2, ai_hard_button.centery - text_hard.get_height() // 2))
+            # Plus button
+            pygame.draw.rect(self.screen, (150, 200, 150), ai_plus_button, border_radius=5)
+            pygame.draw.rect(self.screen, (0, 0, 0), ai_plus_button, 2, border_radius=5)
+            plus_text = self.font_medium.render("+", True, (0, 0, 0))
+            self.screen.blit(plus_text, (ai_plus_button.centerx - plus_text.get_width() // 2, ai_plus_button.centery - plus_text.get_height() // 2))
         else:
             color_white_button = color_black_button = None
-            ai_easy_button = ai_med_button = ai_hard_button = None
+            ai_minus_button = ai_plus_button = None
 
         # Back button
         button_width = min(250, int(self.screen.get_width() * 0.18))
@@ -1015,9 +1013,8 @@ class ChessUI:
             'mode_2p_button': mode_2p_button,
             'color_white_button': color_white_button,
             'color_black_button': color_black_button,
-            'ai_easy_button': ai_easy_button,
-            'ai_med_button': ai_med_button,
-            'ai_hard_button': ai_hard_button
+            'ai_minus_button': ai_minus_button,
+            'ai_plus_button': ai_plus_button
         }
 
     def draw_pass_button(self):

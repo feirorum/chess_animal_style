@@ -79,9 +79,19 @@ OPTIONS_1_PLAYER = "1 spelare"
 OPTIONS_2_PLAYERS = "2 spelare"
 OPTIONS_PLAYER_COLOR = "Din färg"
 OPTIONS_AI_LEVEL = "Datorns svårighetsgrad"
-OPTIONS_AI_EASY = "Lätt"
-OPTIONS_AI_MEDIUM = "Medel"
-OPTIONS_AI_HARD = "Svår"
+OPTIONS_AI_LEVEL_DESC = "Nivå {level}: {desc}"
+OPTIONS_AI_LEVELS = {
+    1: "Mycket lätt (snabbast)",
+    2: "Lätt",
+    3: "Ganska lätt",
+    4: "Enkel",
+    5: "Medel",
+    6: "Medel+",
+    7: "Utmanande",
+    8: "Svår",
+    9: "Mycket svår",
+    10: "Expert (långsammast)"
+}
 
 # Chess problems mode
 PROBLEMS_TITLE = "Schackproblem"

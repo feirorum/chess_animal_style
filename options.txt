@@ -4,5 +4,5 @@
   "animation_duration": 4.5,
   "game_mode": "2_player",
   "player_color": "white",
-  "ai_skill_level": "medium"
+  "ai_skill_level": 5
 }
