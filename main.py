@@ -4,6 +4,7 @@ from chess_logic import ChessGame, GameOptions
 from ui import ChessUI
 from chess_ai import ChessAI
 from chess_problems import CHESS_PROBLEMS
+from problem_checker import check_problem_success
 import swedish_text as txt
 import copy
 
@@ -55,7 +56,11 @@ def main():
 
     # Chess problems state
     current_problem = None
+    current_problem_index = 0
     problem_game = None
+    problem_wrong_moves = 0
+    problem_show_hint = False
+    problems_scroll_offset = 0
 
     # Game loop variables
     dragging = False
@@ -343,13 +348,14 @@ def main():
             # Problems menu state events
             elif current_state == STATE_PROBLEMS_MENU:
                 if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
-                    menu_elements = ui.draw_problems_menu(CHESS_PROBLEMS)
+                    menu_elements = ui.draw_problems_menu(CHESS_PROBLEMS, problems_scroll_offset)
                     if menu_elements['back_button'].collidepoint(mouse_pos):
                         current_state = STATE_MENU
                     else:
                         for button in menu_elements['problem_buttons']:
                             if button['rect'].collidepoint(mouse_pos):
                                 # Start solving this problem
+                                current_problem_index = button['index']
                                 current_problem = button['problem']
                                 problem_game = ChessGame(options)
                                 # Set up the board from the problem
@@ -360,8 +366,17 @@ def main():
                                 if current_problem['king_positions']['black']:
                                     problem_game.king_positions['black'] = current_problem['king_positions']['black']
                                 problem_game.move_history = []
+                                problem_wrong_moves = 0
+                                problem_show_hint = False
                                 current_state = STATE_SOLVING_PROBLEM
                                 break
+
+                elif event.type == pygame.MOUSEWHEEL:
+                    # Scroll the problem list
+                    menu_elements = ui.draw_problems_menu(CHESS_PROBLEMS, problems_scroll_offset)
+                    scroll_step = menu_elements.get('scroll_step', 75)
+                    max_scroll = menu_elements.get('max_scroll', 0)
+                    problems_scroll_offset = max(0, min(max_scroll, problems_scroll_offset - event.y * scroll_step))
 
             # Solving problem state events
             elif current_state == STATE_SOLVING_PROBLEM:
@@ -373,10 +388,37 @@ def main():
                             current_state = STATE_PROBLEMS_MENU
                             problem_game = None
                             current_problem = None
+                            problem_wrong_moves = 0
+                            problem_show_hint = False
                             dragging = False
                             selected_piece = None
                             drag_pos = None
                             continue
+
+                        # Check hint and next buttons
+                        if current_problem:
+                            problem_buttons = ui.draw_problem_objective(current_problem, problem_show_hint)
+                            if problem_buttons['hint_button'].collidepoint(mouse_pos):
+                                problem_show_hint = True
+                                continue
+                            elif problem_buttons['next_button'].collidepoint(mouse_pos):
+                                # Go to next problem
+                                current_problem_index = (current_problem_index + 1) % len(CHESS_PROBLEMS)
+                                current_problem = CHESS_PROBLEMS[current_problem_index]
+                                problem_game = ChessGame(options)
+                                problem_game.board = copy.deepcopy(current_problem['board'])
+                                problem_game.current_player = current_problem['player_color']
+                                if current_problem['king_positions']['white']:
+                                    problem_game.king_positions['white'] = current_problem['king_positions']['white']
+                                if current_problem['king_positions']['black']:
+                                    problem_game.king_positions['black'] = current_problem['king_positions']['black']
+                                problem_game.move_history = []
+                                problem_wrong_moves = 0
+                                problem_show_hint = False
+                                dragging = False
+                                selected_piece = None
+                                drag_pos = None
+                                continue
 
                         # Handle piece selection (only if game is ongoing)
                         if problem_game.game_status == 'ongoing':
@@ -408,13 +450,28 @@ def main():
 
                             if not result['valid']:
                                 ui.show_violation_popup(result['reason'])
+                                # Count as wrong move
+                                problem_wrong_moves += 1
+                                # Auto-show hint after 3 wrong moves
+                                if problem_wrong_moves >= 3:
+                                    problem_show_hint = True
                             elif result.get('promotion'):
                                 promotion_position = result['position']
                                 promotion_color = result['color']
                                 current_state = STATE_PROMOTION
-                            elif result.get('checkmate') or result.get('stalemate'):
-                                # Problem solved!
-                                ui.show_violation_popup(txt.PROBLEMS_SOLVED)
+                            else:
+                                # Check if problem is solved
+                                success = check_problem_success(current_problem, problem_game,
+                                                               (from_row, from_col, to_row, to_col))
+                                if success['solved']:
+                                    ui.show_violation_popup(success.get('message', txt.PROBLEMS_SOLVED))
+                                    problem_wrong_moves = 0
+                                elif result.get('checkmate'):
+                                    ui.show_violation_popup(txt.PROBLEMS_SOLVED)
+                                    problem_wrong_moves = 0
+                                elif result.get('stalemate'):
+                                    ui.show_violation_popup(txt.PROBLEMS_SOLVED)
+                                    problem_wrong_moves = 0
 
                             # AI makes opponent move in problem mode
                             if problem_game.game_status == 'ongoing' and problem_game.current_player != current_problem['player_color']:
@@ -423,7 +480,15 @@ def main():
                                 ai_move = ai.get_best_move(problem_game)
                                 if ai_move:
                                     ai_from_row, ai_from_col, ai_to_row, ai_to_col = ai_move
-                                    problem_game.make_move(ai_from_row, ai_from_col, ai_to_row, ai_to_col)
+                                    ai_result = problem_game.make_move(ai_from_row, ai_from_col, ai_to_row, ai_to_col)
+
+                                    # Check if AI's move resulted in problem success
+                                    if ai_result.get('valid'):
+                                        success = check_problem_success(current_problem, problem_game,
+                                                                       (ai_from_row, ai_from_col, ai_to_row, ai_to_col))
+                                        if success['solved']:
+                                            ui.show_violation_popup(success.get('message', txt.PROBLEMS_SOLVED))
+                                            problem_wrong_moves = 0
 
                         dragging = False
                         selected_piece = None
@@ -476,7 +541,7 @@ def main():
 
         elif current_state == STATE_PROBLEMS_MENU:
             # Draw problems menu
-            ui.draw_problems_menu(CHESS_PROBLEMS)
+            ui.draw_problems_menu(CHESS_PROBLEMS, problems_scroll_offset)
 
         elif current_state == STATE_SOLVING_PROBLEM:
             # Get valid moves for selected piece
@@ -488,9 +553,9 @@ def main():
             # Draw problem game
             if problem_game:
                 ui.draw(problem_game, selected_piece, drag_pos, valid_moves)
-                # Draw problem objective
+                # Draw problem objective with hint if shown
                 if current_problem:
-                    ui.draw_problem_objective(current_problem)
+                    ui.draw_problem_objective(current_problem, problem_show_hint)
 
         # Update display
         pygame.display.flip()

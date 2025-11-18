@@ -102,6 +102,7 @@ class ChessGame:
         self.in_checkmate_capture_mode = False  # Track if in capture king mode after checkmate
         self.game_status = 'ongoing'  # Status: 'ongoing', 'finished'
         self.game_result = None  # Result: 'white_won', 'black_won', 'draw', None
+        self.captured_pieces = {'white': [], 'black': []}  # Track captured pieces by each player
         self.check_sound = None
         self.win_sound = None
         self.load_sounds()
@@ -416,6 +417,10 @@ class ChessGame:
         captured_piece = self.board[to_row][to_col]
         is_king_capture = captured_piece and captured_piece['type'] == 'king'
 
+        # Track captured pieces
+        if captured_piece:
+            self.captured_pieces[piece['color']].append(captured_piece)
+
         # Execute the move
         self.board[to_row][to_col] = piece
         self.board[from_row][from_col] = None
@@ -435,6 +440,9 @@ class ChessGame:
         if is_en_passant:
             # Remove the captured pawn
             capture_row = from_row
+            captured_pawn = self.board[capture_row][to_col]
+            if captured_pawn:
+                self.captured_pieces[piece['color']].append(captured_pawn)
             self.board[capture_row][to_col] = None
 
         # Update castling rights
