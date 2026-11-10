@@ -4,7 +4,7 @@ from chess_logic import ChessGame, GameOptions
 from ui import ChessUI
 from chess_ai import ChessAI
 from chess_problems import CHESS_PROBLEMS
-from problem_checker import check_problem_success
+from problem_checker import check_problem_success, setup_problem_game, play_move
 import swedish_text as txt
 import copy
 import os
@@ -90,6 +90,9 @@ def main():
     problem_wrong_moves = 0
     problem_show_hint = False
     problems_scroll_offset = 0
+    problem_moves_made = 0     # player moves made in the current attempt
+    problem_failures = 0       # failed attempts at the current problem
+    problem_solved = False
 
     # Game loop variables
     dragging = False
@@ -99,6 +102,56 @@ def main():
     # Promotion state
     promotion_position = None
     promotion_color = None
+    promotion_in_problem = False
+    promotion_move = None
+
+    def start_problem(index, retry=False):
+        """Set up problem number index (0-based). retry keeps the failure count and hint."""
+        nonlocal current_problem_index, current_problem, problem_game, problem_wrong_moves
+        nonlocal problem_show_hint, problem_moves_made, problem_failures, problem_solved
+        nonlocal dragging, selected_piece, drag_pos
+        current_problem_index = index
+        current_problem = CHESS_PROBLEMS[index]
+        problem_game = setup_problem_game(current_problem, options)
+        problem_moves_made = 0
+        problem_solved = False
+        problem_wrong_moves = 0
+        if not retry:
+            problem_failures = 0
+            problem_show_hint = False
+        dragging = False
+        selected_piece = None
+        drag_pos = None
+        logging.info("Problem %d (%s) %s", index + 1, current_problem['id'],
+                     "restarted" if retry else "started")
+
+    def finish_problem_move(move):
+        """After a completed player move: check the goal, fail, or let the opponent reply."""
+        nonlocal problem_moves_made, problem_solved, problem_failures, problem_show_hint
+        problem_moves_made += 1
+        success = check_problem_success(current_problem, problem_game, move)
+        if success['solved']:
+            problem_solved = True
+            logging.info("Problem %s solved", current_problem['id'])
+            ui.show_violation_popup(success['message'])
+            return
+
+        out_of_moves = problem_moves_made >= current_problem.get('moves', 1)
+        if not out_of_moves and problem_game.game_status == 'ongoing':
+            # Opponent replies
+            ai_move = ai.get_best_move(problem_game)
+            if ai_move:
+                play_move(problem_game, ai_move)
+            if problem_game.game_status == 'ongoing':
+                return
+
+        # Attempt failed: start the same problem again
+        problem_failures += 1
+        logging.info("Problem %s failed attempt %d", current_problem['id'], problem_failures)
+        if problem_failures >= 2:
+            problem_show_hint = True
+        ui.show_violation_popup(txt.PROBLEMS_FAILED)
+        start_problem(current_problem_index, retry=True)
 
     # Save input state
     save_name_input = ""
@@ -277,8 +330,18 @@ def main():
                     piece_buttons = ui.draw_promotion_popup(promotion_color)
                     for button in piece_buttons:
                         if button['rect'].collidepoint(mouse_pos):
-                            # Promote pawn
                             row, col = promotion_position
+                            if promotion_in_problem:
+                                # Promotion during a chess problem
+                                problem_game.promote_pawn(row, col, button['type'])
+                                promotion_in_problem = False
+                                promotion_position = None
+                                promotion_color = None
+                                current_state = STATE_SOLVING_PROBLEM
+                                finish_problem_move(promotion_move)
+                                break
+
+                            # Promote pawn
                             result = game.promote_pawn(row, col, button['type'])
 
                             if result.get('checkmate'):
@@ -384,19 +447,7 @@ def main():
                         for button in menu_elements['problem_buttons']:
                             if button['rect'].collidepoint(mouse_pos):
                                 # Start solving this problem
-                                current_problem_index = button['index']
-                                current_problem = button['problem']
-                                problem_game = ChessGame(options)
-                                # Set up the board from the problem
-                                problem_game.board = copy.deepcopy(current_problem['board'])
-                                problem_game.current_player = current_problem['player_color']
-                                if current_problem['king_positions']['white']:
-                                    problem_game.king_positions['white'] = current_problem['king_positions']['white']
-                                if current_problem['king_positions']['black']:
-                                    problem_game.king_positions['black'] = current_problem['king_positions']['black']
-                                problem_game.move_history = []
-                                problem_wrong_moves = 0
-                                problem_show_hint = False
+                                start_problem(button['index'])
                                 current_state = STATE_SOLVING_PROBLEM
                                 break
 
@@ -432,25 +483,11 @@ def main():
                                 continue
                             elif problem_buttons['next_button'].collidepoint(mouse_pos):
                                 # Go to next problem
-                                current_problem_index = (current_problem_index + 1) % len(CHESS_PROBLEMS)
-                                current_problem = CHESS_PROBLEMS[current_problem_index]
-                                problem_game = ChessGame(options)
-                                problem_game.board = copy.deepcopy(current_problem['board'])
-                                problem_game.current_player = current_problem['player_color']
-                                if current_problem['king_positions']['white']:
-                                    problem_game.king_positions['white'] = current_problem['king_positions']['white']
-                                if current_problem['king_positions']['black']:
-                                    problem_game.king_positions['black'] = current_problem['king_positions']['black']
-                                problem_game.move_history = []
-                                problem_wrong_moves = 0
-                                problem_show_hint = False
-                                dragging = False
-                                selected_piece = None
-                                drag_pos = None
+                                start_problem((current_problem_index + 1) % len(CHESS_PROBLEMS))
                                 continue
 
-                        # Handle piece selection (only if game is ongoing)
-                        if problem_game.game_status == 'ongoing':
+                        # Handle piece selection (only while the problem is unsolved)
+                        if problem_game.game_status == 'ongoing' and not problem_solved:
                             square = ui.get_square_from_pos(mouse_pos)
                             if square:
                                 row, col = square
@@ -485,39 +522,14 @@ def main():
                                 if problem_wrong_moves >= 3:
                                     problem_show_hint = True
                             elif result.get('promotion'):
+                                # Let the player choose the piece; the move is finished afterwards
                                 promotion_position = result['position']
                                 promotion_color = result['color']
+                                promotion_in_problem = True
+                                promotion_move = (from_row, from_col, to_row, to_col)
                                 current_state = STATE_PROMOTION
                             else:
-                                # Check if problem is solved
-                                success = check_problem_success(current_problem, problem_game,
-                                                               (from_row, from_col, to_row, to_col))
-                                if success['solved']:
-                                    ui.show_violation_popup(success.get('message', txt.PROBLEMS_SOLVED))
-                                    problem_wrong_moves = 0
-                                elif result.get('checkmate'):
-                                    ui.show_violation_popup(txt.PROBLEMS_SOLVED)
-                                    problem_wrong_moves = 0
-                                elif result.get('stalemate'):
-                                    ui.show_violation_popup(txt.PROBLEMS_SOLVED)
-                                    problem_wrong_moves = 0
-
-                            # AI makes opponent move in problem mode
-                            if problem_game.game_status == 'ongoing' and problem_game.current_player != current_problem['player_color']:
-                                # Use level 5 (medium) for problem solving
-                                pygame.time.wait(300)
-                                ai_move = ai.get_best_move(problem_game)
-                                if ai_move:
-                                    ai_from_row, ai_from_col, ai_to_row, ai_to_col = ai_move
-                                    ai_result = problem_game.make_move(ai_from_row, ai_from_col, ai_to_row, ai_to_col)
-
-                                    # Check if AI's move resulted in problem success
-                                    if ai_result.get('valid'):
-                                        success = check_problem_success(current_problem, problem_game,
-                                                                       (ai_from_row, ai_from_col, ai_to_row, ai_to_col))
-                                        if success['solved']:
-                                            ui.show_violation_popup(success.get('message', txt.PROBLEMS_SOLVED))
-                                            problem_wrong_moves = 0
+                                finish_problem_move((from_row, from_col, to_row, to_col))
 
                         dragging = False
                         selected_piece = None
@@ -543,7 +555,7 @@ def main():
 
         elif current_state == STATE_PROMOTION:
             # Draw game in background
-            ui.draw(game, None, None, [])
+            ui.draw(problem_game if promotion_in_problem else game, None, None, [])
             # Draw promotion popup on top
             ui.draw_promotion_popup(promotion_color)
 

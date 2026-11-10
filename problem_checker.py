@@ -1,142 +1,170 @@
 # -*- coding: utf-8 -*-
-"""Chess problem success detection"""
+"""Chess problem setup and success detection.
+
+A problem's goal ('success_condition') is evaluated after each of the
+player's moves. Supported goals:
+
+  checkmate     the opponent is checkmated
+  check         the opponent is in check
+  capture       an opponent piece of a type in problem['target'] was captured
+  promotion     a pawn has been promoted
+  escape_check  the player is no longer in check
+  save_piece    the player's piece of type target[0] is still there and not attacked
+  stop_mate     the opponent has no move that checkmates the player
+  win_material  the player has won at least problem['min_gain'] points of material
+"""
+import copy
+
+from chess_logic import ChessGame, GameOptions
+
+PIECE_VALUES = {'pawn': 1, 'knight': 3, 'bishop': 3, 'rook': 5, 'queen': 9, 'king': 0}
+PIECE_NAMES = {'pawn': 'bonden', 'knight': 'hästen', 'bishop': 'löparen',
+               'rook': 'tornet', 'queen': 'damen', 'king': 'kungen'}
+
+MESSAGES = {
+    'checkmate': 'Schackmatt! Problemet är löst!',
+    'check': 'Schack! Problemet är löst!',
+    'capture': 'Bra! Du tog {target}. Problemet är löst!',
+    'promotion': 'Bonden förvandlades! Problemet är löst!',
+    'escape_check': 'Kungen är säker! Problemet är löst!',
+    'save_piece': 'Bra! {target} är räddad. Problemet är löst!',
+    'stop_mate': 'Bra försvar! Nu kan svart inte göra matt.',
+    'win_material': 'Bra! Du vann material. Problemet är löst!',
+}
+
+SUPPORTED_GOALS = set(MESSAGES)
+
+
+def _opponent(color):
+    return 'black' if color == 'white' else 'white'
+
+
+def setup_problem_game(problem, options=None):
+    """Create a ChessGame set up with the problem's position."""
+    opts = copy.copy(options) if options else GameOptions()
+    # Problems always end at checkmate, regardless of the "capture the king" option
+    opts.capture_king_on_checkmate = False
+    game = ChessGame(opts)
+    game.board = copy.deepcopy(problem['board'])
+    game.current_player = problem['player_color']
+    game.king_positions = dict(problem['king_positions'])
+    game.castling_rights = {c: {'kingside': False, 'queenside': False} for c in ('white', 'black')}
+    game.en_passant_target = None
+    game.move_history = []
+    return game
+
+
+def clone_game(game):
+    """Cheap copy of a game for looking ahead (no sounds)."""
+    g = ChessGame.__new__(ChessGame)
+    g.__dict__.update(game.__dict__)
+    g.board = [row[:] for row in game.board]
+    g.king_positions = dict(game.king_positions)
+    g.castling_rights = copy.deepcopy(game.castling_rights)
+    g.captured_pieces = {c: list(v) for c, v in game.captured_pieces.items()}
+    g.move_history = list(game.move_history)
+    g.check_sound = None
+    g.win_sound = None
+    return g
+
+
+def legal_moves(game, color):
+    """All legal moves (from_row, from_col, to_row, to_col) for color, which must be to move."""
+    moves = []
+    for r in range(8):
+        for c in range(8):
+            piece = game.board[r][c]
+            if piece and piece['color'] == color:
+                for tr, tc in game.get_valid_moves(r, c):
+                    moves.append((r, c, tr, tc))
+    return moves
+
+
+def play_move(game, move, promote_to='queen'):
+    """Make a move on game, completing a promotion. Returns make_move's result."""
+    result = game.make_move(*move)
+    if result.get('valid') and result.get('promotion'):
+        row, col = result['position']
+        game.promote_pawn(row, col, promote_to)
+    return result
+
+
+def _count(board, color, types):
+    return sum(1 for row in board for p in row
+               if p and p['color'] == color and p['type'] in types)
+
+
+def material_balance(board, color):
+    """Material of color minus material of the opponent."""
+    total = 0
+    for row in board:
+        for p in row:
+            if p:
+                v = PIECE_VALUES[p['type']]
+                total += v if p['color'] == color else -v
+    return total
+
+
+def opponent_can_mate(game, player):
+    """True if the side to move (the player's opponent) has a mating move."""
+    opp = _opponent(player)
+    if game.current_player != opp:
+        return False
+    for move in legal_moves(game, opp):
+        g = clone_game(game)
+        play_move(g, move)
+        if g.is_checkmate(player):
+            return True
+    return False
+
+
+def goal_reached(problem, game):
+    """Evaluate the problem's goal on the position after a player move."""
+    goal = problem.get('success_condition', 'checkmate')
+    me = problem['player_color']
+    opp = _opponent(me)
+    start = problem['board']
+    targets = problem.get('target', [])
+
+    if goal == 'checkmate':
+        return game.is_checkmate(opp)
+    if goal == 'check':
+        return game.is_in_check(opp)
+    if goal == 'capture':
+        return _count(game.board, opp, targets) < _count(start, opp, targets)
+    if goal == 'promotion':
+        officers = ['knight', 'bishop', 'rook', 'queen']
+        return _count(game.board, me, officers) > _count(start, me, officers)
+    if goal == 'escape_check':
+        return not game.is_in_check(me)
+    if goal == 'save_piece':
+        kind = targets[0]
+        if _count(game.board, me, [kind]) < _count(start, me, [kind]):
+            return False
+        return not any(p and p['color'] == me and p['type'] == kind and game.is_square_attacked(r, c, opp)
+                       for r, row in enumerate(game.board) for c, p in enumerate(row))
+    if goal == 'stop_mate':
+        return not opponent_can_mate(game, me)
+    if goal == 'win_material':
+        gain = material_balance(game.board, me) - material_balance(start, me)
+        return gain >= problem.get('min_gain', 3)
+    raise ValueError(f"Unknown success_condition {goal!r}")
+
 
 def check_problem_success(problem, game, last_move=None):
+    """Check if the problem is solved after the player's move.
+
+    Returns dict with 'solved' (bool) and, when solved, 'message' (str).
     """
-    Check if a problem has been successfully solved based on its success_condition
-
-    Args:
-        problem: The problem dictionary with success_condition
-        game: The current ChessGame instance
-        last_move: Optional tuple of (from_row, from_col, to_row, to_col)
-
-    Returns:
-        dict with 'solved' (bool) and optional 'message' (str)
-    """
-    condition = problem.get('success_condition', 'checkmate')
-
-    if condition == 'checkmate':
-        # Check if opponent is in checkmate
-        opponent_color = 'black' if problem['player_color'] == 'white' else 'white'
-        if game.is_checkmate(opponent_color):
-            return {'solved': True, 'message': 'Schackmatt! Problem löst!'}
-
-    elif condition == 'check':
-        # Check if opponent is in check
-        opponent_color = 'black' if problem['player_color'] == 'white' else 'white'
-        if game.is_in_check(opponent_color):
-            return {'solved': True, 'message': 'Schack! Problem löst!'}
-
-    elif condition == 'material_advantage':
-        # Check if player has captured the target piece
-        target = problem.get('target_capture', 'queen')
-        if last_move:
-            from_row, from_col, to_row, to_col = last_move
-            captured = game.captured_pieces.get(problem['player_color'], [])
-            if captured and captured[-1]['type'] == target:
-                return {'solved': True, 'message': f'Bra! Du tog {target}. Problem löst!'}
-
-    elif condition == 'fork' or condition == 'fork_check':
-        # Check if a piece is attacking two or more valuable pieces
-        if last_move:
-            from_row, from_col, to_row, to_col = last_move
-            piece = game.board[to_row][to_col]
-            if piece and piece['color'] == problem['player_color']:
-                # Count threatened enemy pieces
-                threatened = []
-                opponent_color = 'black' if problem['player_color'] == 'white' else 'white'
-
-                # Get all positions this piece can attack
-                moves = game.get_valid_moves(to_row, to_col)
-                for target_row, target_col in moves:
-                    target_piece = game.board[target_row][target_col]
-                    if target_piece and target_piece['color'] == opponent_color:
-                        if target_piece['type'] in ['king', 'queen', 'rook', 'bishop', 'knight']:
-                            threatened.append(target_piece['type'])
-
-                # Check if fork is successful (attacking 2+ pieces, or king + another piece)
-                if len(threatened) >= 2 or ('king' in threatened and len(threatened) > 0):
-                    return {'solved': True, 'message': 'Gaffel! Problem löst!'}
-
-    elif condition == 'royal_fork':
-        # Check if knight is attacking both king and queen
-        if last_move:
-            from_row, from_col, to_row, to_col = last_move
-            piece = game.board[to_row][to_col]
-            if piece and piece['type'] == 'knight' and piece['color'] == problem['player_color']:
-                threatened = []
-                opponent_color = 'black' if problem['player_color'] == 'white' else 'white'
-                moves = game.get_valid_moves(to_row, to_col)
-                for target_row, target_col in moves:
-                    target_piece = game.board[target_row][target_col]
-                    if target_piece and target_piece['color'] == opponent_color:
-                        threatened.append(target_piece['type'])
-
-                if 'king' in threatened and 'queen' in threatened:
-                    return {'solved': True, 'message': 'Kunglig gaffel! Problem löst!'}
-
-    elif condition == 'pin':
-        # Check if a piece is pinned (simplified check)
-        if last_move:
-            from_row, from_col, to_row, to_col = last_move
-            piece = game.board[to_row][to_col]
-            if piece and piece['color'] == problem['player_color']:
-                # Check if this piece is pinning an enemy piece to their king
-                if piece['type'] in ['bishop', 'rook', 'queen']:
-                    # Simplified: just check if we're on same diagonal/line with enemy king and a piece between
-                    opponent_color = 'black' if problem['player_color'] == 'white' else 'white'
-                    king_pos = game.king_positions.get(opponent_color)
-                    if king_pos:
-                        # Check if there's a valuable enemy piece between us and their king
-                        # This is a simplified check - full implementation would be more complex
-                        return {'solved': True, 'message': 'Fästning! Problem löst!'}
-
-    elif condition == 'promotion':
-        # Check if a pawn has been promoted
-        if last_move:
-            from_row, from_col, to_row, to_col = last_move
-            piece = game.board[to_row][to_col]
-            if piece and piece['color'] == problem['player_color']:
-                # Check if piece was promoted (is now queen/rook/bishop/knight on back rank)
-                if problem['player_color'] == 'white' and to_row == 0:
-                    if piece['type'] in ['queen', 'rook', 'bishop', 'knight']:
-                        return {'solved': True, 'message': 'Bonde befordrad! Problem löst!'}
-                elif problem['player_color'] == 'black' and to_row == 7:
-                    if piece['type'] in ['queen', 'rook', 'bishop', 'knight']:
-                        return {'solved': True, 'message': 'Bonde befordrad! Problem löst!'}
-
-    elif condition == 'piece_to_center':
-        # Check if piece moved to center (d4, e4, d5, e5)
-        center_squares = [(3, 3), (3, 4), (4, 3), (4, 4)]
-        if last_move:
-            from_row, from_col, to_row, to_col = last_move
-            if (to_row, to_col) in center_squares:
-                piece = game.board[to_row][to_col]
-                if piece and piece['type'] == problem.get('target_piece', 'knight'):
-                    return {'solved': True, 'message': 'Pjäs i centrum! Problem löst!'}
-
-    elif condition == 'escape_check':
-        # Check if player successfully escaped check
-        if not game.is_in_check(problem['player_color']):
-            return {'solved': True, 'message': 'Undkom schack! Problem löst!'}
-
-    elif condition == 'discovered_attack' or condition == 'discovered_check':
-        # Simplified check for discovered attack
-        if last_move:
-            opponent_color = 'black' if problem['player_color'] == 'white' else 'white'
-            if game.is_in_check(opponent_color):
-                # Check if the piece that moved is not the one giving check
-                from_row, from_col, to_row, to_col = last_move
-                # This is a simplified check
-                return {'solved': True, 'message': 'Upptäckt angrepp! Problem löst!'}
-
-    elif condition == 'double_check':
-        # Check if opponent is in check from two pieces simultaneously
-        if last_move:
-            opponent_color = 'black' if problem['player_color'] == 'white' else 'white'
-            if game.is_in_check(opponent_color):
-                # Simplified: just check if in check (full implementation would verify it's from 2 pieces)
-                return {'solved': True, 'message': 'Dubbelschack! Problem löst!'}
-
-    # Default: not solved yet
+    goal = problem.get('success_condition', 'checkmate')
+    me = problem['player_color']
+    # A checkmate always solves the problem; a stalemate never does
+    if goal != 'stop_mate' and game.is_checkmate(_opponent(me)):
+        return {'solved': True, 'message': MESSAGES['checkmate']}
+    if game.is_stalemate(_opponent(me)):
+        return {'solved': False}
+    if goal_reached(problem, game):
+        target = PIECE_NAMES.get((problem.get('target') or ['queen'])[0], 'pjäsen')
+        message = MESSAGES[goal].format(target=target)
+        return {'solved': True, 'message': message[0].upper() + message[1:]}
     return {'solved': False}
