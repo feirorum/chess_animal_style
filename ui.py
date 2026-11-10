@@ -1036,94 +1036,126 @@ class ChessUI:
 
         return pass_button
 
+    def _fit_text(self, text, font, max_width):
+        """Truncate text with '...' so it fits within max_width pixels"""
+        if font.size(text)[0] <= max_width:
+            return text
+        while text and font.size(text + "...")[0] > max_width:
+            text = text[:-1]
+        return text.rstrip() + "..."
+
+    def _draw_arrow(self, cx, cy, size, direction, color):
+        """Draw a small triangle arrow (the default font has no arrow glyphs)"""
+        h = size // 2
+        if direction == 'up':
+            pts = [(cx - h, cy + h // 2), (cx + h, cy + h // 2), (cx, cy - h // 2)]
+        elif direction == 'down':
+            pts = [(cx - h, cy - h // 2), (cx + h, cy - h // 2), (cx, cy + h // 2)]
+        else:  # right
+            pts = [(cx - h // 2, cy - h), (cx - h // 2, cy + h), (cx + h // 2, cy)]
+        pygame.draw.polygon(self.screen, color, pts)
+
+    def _draw_label_with_arrow(self, label, font, center, direction, color):
+        """Draw 'label' with a triangle arrow before it, centered on center"""
+        text = font.render(label, True, color)
+        arrow = font.get_height() // 2
+        gap = arrow // 2
+        total = arrow + gap + text.get_width()
+        left = center[0] - total // 2
+        self._draw_arrow(left + arrow // 2, center[1], arrow, direction, color)
+        self.screen.blit(text, (left + arrow + gap, center[1] - text.get_height() // 2))
+
     def draw_problems_menu(self, problems, scroll_offset=0):
-        """Draw the chess problems selection menu with scrolling"""
+        """Draw the chess problems selection menu with scrolling.
+
+        All positions are derived from font metrics, since fonts scale
+        with the window size.
+        """
         from chess_problems import CHESS_PROBLEMS
 
         self.screen.blit(self.background, (0, 0))
+        sw, sh = self.screen.get_width(), self.screen.get_height()
+        line_small = self.font_small.get_linesize()
+        line_medium = self.font_medium.get_linesize()
+        pad = max(6, line_small // 3)
 
         # Title
         title = self.font_large.render(txt.PROBLEMS_TITLE, True, (0, 0, 0))
-        title_x = (self.screen.get_width() - title.get_width()) // 2
-        title_y = 50
-        self.screen.blit(title, (title_x, title_y))
+        title_y = pad * 2
+        self.screen.blit(title, ((sw - title.get_width()) // 2, title_y))
 
         # Subtitle
         subtitle = self.font_small.render(txt.PROBLEMS_SELECT, True, (0, 0, 0))
-        subtitle_x = (self.screen.get_width() - subtitle.get_width()) // 2
-        self.screen.blit(subtitle, (subtitle_x, title_y + 50))
+        subtitle_y = title_y + title.get_height() + pad // 2
+        self.screen.blit(subtitle, ((sw - subtitle.get_width()) // 2, subtitle_y))
 
-        # Problem list area
-        list_y_start = 130
-        list_height = self.screen.get_height() - 230
-        button_width = min(700, int(self.screen.get_width() * 0.7))
-        button_height = 65
-        button_spacing = 10
-        button_x = (self.screen.get_width() - button_width) // 2
+        # Back button (bottom)
+        back_label = self.font_medium.render(txt.PROBLEMS_BACK, True, (0, 0, 0))
+        back_w = back_label.get_width() + pad * 6
+        back_h = back_label.get_height() + pad * 2
+        back_button = pygame.Rect((sw - back_w) // 2, sh - back_h - pad * 2, back_w, back_h)
+
+        # List area sits between the header/up-indicator and the down-indicator/back button
+        list_y_start = subtitle_y + subtitle.get_height() + line_small + pad
+        list_bottom = back_button.top - line_small - pad * 2
+        list_height = max(0, list_bottom - list_y_start)
+
+        button_width = min(sw - 40, max(700, int(sw * 0.6)))
+        button_height = pad * 3 + line_medium + line_small
+        button_spacing = pad
+        button_x = (sw - button_width) // 2
+        list_rect = pygame.Rect(button_x - 4, list_y_start, button_width + 8, list_height)
+
+        colors = {'easy': (150, 220, 150), 'medium': (220, 200, 150), 'hard': (220, 150, 150)}
+        diff_labels = {'easy': txt.PROBLEMS_EASY, 'medium': txt.PROBLEMS_MEDIUM, 'hard': txt.PROBLEMS_HARD}
 
         problem_buttons = []
-        visible_count = 0
-
+        self.screen.set_clip(list_rect)
         for i, problem in enumerate(CHESS_PROBLEMS):
             y = list_y_start + i * (button_height + button_spacing) - scroll_offset
-
-            # Only draw if visible
-            if y + button_height < list_y_start or y > list_y_start + list_height:
+            if y + button_height < list_y_start or y > list_bottom:
                 continue
 
-            visible_count += 1
             button_rect = pygame.Rect(button_x, y, button_width, button_height)
-            problem_buttons.append({'problem': problem, 'rect': button_rect, 'index': i})
+            # Only the visible part of a button is clickable
+            problem_buttons.append({'problem': problem, 'rect': button_rect.clip(list_rect), 'index': i})
 
-            # Color based on difficulty
-            colors = {'easy': (150, 220, 150), 'medium': (220, 200, 150), 'hard': (220, 150, 150)}
             color = colors.get(problem['difficulty'], (180, 180, 180))
-
-            # Draw button
             pygame.draw.rect(self.screen, color, button_rect, border_radius=8)
             pygame.draw.rect(self.screen, (0, 0, 0), button_rect, 2, border_radius=8)
 
-            # Draw problem number and title (truncate if needed)
-            title_text = f"{i+1}. {problem['title']}"
-            if len(title_text) > 40:
-                title_text = title_text[:37] + "..."
-            title_rendered = self.font_medium.render(title_text, True, (0, 0, 0))
-            self.screen.blit(title_rendered, (button_x + 12, y + 8))
+            # Difficulty badge (top right)
+            diff_rendered = self.font_small.render(diff_labels[problem['difficulty']], True, (100, 50, 150))
+            badge_x = button_x + button_width - diff_rendered.get_width() - pad * 2
+            self.screen.blit(diff_rendered, (badge_x, y + pad))
 
-            # Draw objective (truncate if needed)
-            obj_text = problem['objective']
-            if len(obj_text) > 60:
-                obj_text = obj_text[:57] + "..."
-            obj_rendered = self.font_small.render(obj_text, True, (40, 40, 40))
-            self.screen.blit(obj_rendered, (button_x + 12, y + 36))
+            # Title, truncated so it never runs into the badge
+            title_text = self._fit_text(f"{i+1}. {problem['title']}", self.font_medium,
+                                        badge_x - (button_x + pad * 2) - pad * 2)
+            self.screen.blit(self.font_medium.render(title_text, True, (0, 0, 0)),
+                             (button_x + pad * 2, y + pad))
 
-            # Draw difficulty badge
-            diff_label = {'easy': txt.PROBLEMS_EASY, 'medium': txt.PROBLEMS_MEDIUM, 'hard': txt.PROBLEMS_HARD}[problem['difficulty']]
-            diff_rendered = self.font_small.render(diff_label, True, (100, 50, 150))
-            self.screen.blit(diff_rendered, (button_x + button_width - diff_rendered.get_width() - 12, y + 8))
+            # Objective on its own line below the title
+            obj_text = self._fit_text(problem['objective'], self.font_small, button_width - pad * 4)
+            self.screen.blit(self.font_small.render(obj_text, True, (40, 40, 40)),
+                             (button_x + pad * 2, y + pad * 2 + line_medium))
+        self.screen.set_clip(None)
 
-        # Scroll indicators
+        # Scroll indicators (between header and list, and between list and back button)
+        max_scroll = max(0, len(CHESS_PROBLEMS) * (button_height + button_spacing) - button_spacing - list_height)
+        grey = (90, 90, 90)
         if scroll_offset > 0:
-            up_text = self.font_medium.render("↑ Scrolla upp", True, (100, 100, 100))
-            self.screen.blit(up_text, (button_x, list_y_start - 25))
-
-        max_scroll = max(0, len(CHESS_PROBLEMS) * (button_height + button_spacing) - list_height)
+            self._draw_label_with_arrow("Scrolla upp", self.font_small,
+                                        (sw // 2, list_y_start - line_small // 2 - pad // 2), 'up', grey)
         if scroll_offset < max_scroll:
-            down_text = self.font_medium.render("↓ Scrolla ner", True, (100, 100, 100))
-            self.screen.blit(down_text, (button_x, list_y_start + list_height + 5))
+            self._draw_label_with_arrow("Scrolla ner", self.font_small,
+                                        (sw // 2, list_bottom + pad + line_small // 2), 'down', grey)
 
         # Back button
-        button_width_back = 200
-        button_height_back = 45
-        back_button = pygame.Rect((self.screen.get_width() - button_width_back) // 2,
-                                   self.screen.get_height() - 80,
-                                   button_width_back, button_height_back)
         pygame.draw.rect(self.screen, (200, 100, 100), back_button, border_radius=10)
         pygame.draw.rect(self.screen, (0, 0, 0), back_button, 3, border_radius=10)
-
-        back_text = self.font_medium.render(txt.PROBLEMS_BACK, True, (0, 0, 0))
-        self.screen.blit(back_text, (back_button.centerx - back_text.get_width() // 2,
-                                     back_button.centery - back_text.get_height() // 2))
+        self.screen.blit(back_label, (back_button.centerx - back_label.get_width() // 2,
+                                      back_button.centery - back_label.get_height() // 2))
 
         return {
             'problem_buttons': problem_buttons,
@@ -1133,48 +1165,67 @@ class ChessUI:
         }
 
     def draw_problem_objective(self, problem, show_hint=False):
-        """Draw the current problem's objective on the side"""
-        x = self.board_offset_x + self.board_size + 30
-        y = self.board_offset_y + 200
+        """Draw the current problem's objective box beside the board, below the menu button"""
+        sw = self.screen.get_width()
+        line = self.font_small.get_linesize()
+        pad = max(8, line // 3)
 
-        # Objective box
-        box_width = 250
-        box_height = 180
+        x = self.board_offset_x + self.board_size + 30
+        # Start below the Meny button (see draw_menu_button) so they never collide
+        y = self.board_offset_y + int(self.board_size * 0.414) + pad * 3
+        box_width = max(200, sw - x - 20)
+        inner = box_width - pad * 2
+
+        title = self.font_medium.render(txt.PROBLEMS_OBJECTIVE, True, (0, 0, 0))
+        obj_lines = self.wrap_text(problem['objective'], inner, self.font_small)
+        hint_lines = self.wrap_text(problem['hint'], inner, self.font_small) \
+            if show_hint and 'hint' in problem else []
+
+        # Buttons: side by side if they fit, otherwise stacked
+        hint_label = self.font_small.render(txt.PROBLEMS_HINT, True, (0, 0, 0))
+        next_label = self.font_small.render("Nästa", True, (0, 0, 0))
+        arrow = self.font_small.get_height() // 2
+        btn_h = line + pad
+        hint_w = hint_label.get_width() + pad * 2
+        next_w = next_label.get_width() + arrow + pad * 3
+        side_by_side = hint_w + next_w + pad <= inner
+
+        # Box height follows the content
+        cy = pad + title.get_height() + pad // 2
+        text_top = cy
+        cy += len(obj_lines) * line + pad
+        buttons_top = cy
+        cy += btn_h if side_by_side else btn_h * 2 + pad
+        cy += pad
+        hint_top = cy
+        cy += len(hint_lines) * line + (pad if hint_lines else 0)
+        box_height = cy
+
         pygame.draw.rect(self.screen, (255, 255, 220), (x, y, box_width, box_height), border_radius=10)
         pygame.draw.rect(self.screen, (0, 0, 0), (x, y, box_width, box_height), 2, border_radius=10)
+        self.screen.blit(title, (x + pad, y + pad))
 
-        # Title
-        title = self.font_medium.render(txt.PROBLEMS_OBJECTIVE, True, (0, 0, 0))
-        self.screen.blit(title, (x + 10, y + 10))
+        for i, l in enumerate(obj_lines):
+            self.screen.blit(self.font_small.render(l, True, (50, 50, 50)), (x + pad, y + text_top + i * line))
 
-        # Objective text (wrap if needed)
-        obj_lines = self.wrap_text(problem['objective'], box_width - 20, self.font_small)
-        for i, line in enumerate(obj_lines[:2]):  # Limit to 2 lines
-            text = self.font_small.render(line, True, (50, 50, 50))
-            self.screen.blit(text, (x + 10, y + 40 + i * 22))
+        hint_button = pygame.Rect(x + pad, y + buttons_top, hint_w, btn_h)
+        if side_by_side:
+            next_button = pygame.Rect(x + box_width - pad - next_w, y + buttons_top, next_w, btn_h)
+        else:
+            next_button = pygame.Rect(x + pad, hint_button.bottom + pad, next_w, btn_h)
 
-        # Hint button
-        hint_button = pygame.Rect(x + 10, y + 90, 100, 30)
         pygame.draw.rect(self.screen, (150, 200, 250), hint_button, border_radius=5)
         pygame.draw.rect(self.screen, (0, 0, 0), hint_button, 2, border_radius=5)
-        hint_text = self.font_small.render(txt.PROBLEMS_HINT, True, (0, 0, 0))
-        self.screen.blit(hint_text, (hint_button.centerx - hint_text.get_width() // 2,
-                                     hint_button.centery - hint_text.get_height() // 2))
+        self.screen.blit(hint_label, (hint_button.centerx - hint_label.get_width() // 2,
+                                      hint_button.centery - hint_label.get_height() // 2))
 
-        # Show hint if requested
-        if show_hint and 'hint' in problem:
-            hint_lines = self.wrap_text(problem['hint'], box_width - 20, self.font_small)
-            for i, line in enumerate(hint_lines[:2]):  # Limit to 2 lines
-                text = self.font_small.render(line, True, (100, 50, 150))
-                self.screen.blit(text, (x + 10, y + 130 + i * 20))
-
-        # Next problem button
-        next_button = pygame.Rect(x + 130, y + 90, 110, 30)
         pygame.draw.rect(self.screen, (150, 250, 150), next_button, border_radius=5)
         pygame.draw.rect(self.screen, (0, 0, 0), next_button, 2, border_radius=5)
-        next_text = self.font_small.render("Nästa →", True, (0, 0, 0))
-        self.screen.blit(next_text, (next_button.centerx - next_text.get_width() // 2,
-                                     next_button.centery - next_text.get_height() // 2))
+        self.screen.blit(next_label, (next_button.x + pad, next_button.centery - next_label.get_height() // 2))
+        self._draw_arrow(next_button.right - pad - arrow // 2, next_button.centery, arrow, 'right', (0, 0, 0))
+
+        for i, l in enumerate(hint_lines):
+            self.screen.blit(self.font_small.render(l, True, (100, 50, 150)), (x + pad, y + hint_top + i * line))
 
         return {'hint_button': hint_button, 'next_button': next_button}
 
