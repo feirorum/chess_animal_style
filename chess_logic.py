@@ -113,7 +113,7 @@ class ChessGame:
             self.check_sound = pygame.mixer.Sound('assets/sounds/check.wav')
             self.win_sound = pygame.mixer.Sound('assets/sounds/win.wav')
         except:
-            print("Sound files not found. Continuing without sound effects.")
+            print(txt.LOG_SOUND_MISSING)
 
     def create_initial_board(self):
         """Create the initial chess board with animal pieces"""

@@ -18,6 +18,7 @@ os.makedirs(LOG_DIR, exist_ok=True)
 LOG_FILE = os.path.join(LOG_DIR, "game.log")
 logging.basicConfig(
     filename=LOG_FILE,
+    encoding="utf-8",
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(message)s",
 )
@@ -27,13 +28,13 @@ faulthandler.enable(file=_fault_file)
 
 
 def _log_uncaught(exc_type, exc, tb):
-    logging.critical("Uncaught exception:\n%s",
+    logging.critical("Ohanterat fel:\n%s",
                      "".join(traceback.format_exception(exc_type, exc, tb)))
     sys.__excepthook__(exc_type, exc, tb)
 
 
 sys.excepthook = _log_uncaught
-logging.info("=== Game starting (pygame %s, python %s) ===",
+logging.info("=== Spelet startar (pygame %s, python %s) ===",
              pygame.version.ver, sys.version.split()[0])
 
 # Initialize Pygame
@@ -41,8 +42,8 @@ pygame.init()
 try:
     pygame.mixer.init()
 except pygame.error:
-    print("Warning: Audio device not available. Running without sound.")
-    logging.warning("Audio device not available. Running without sound.")
+    print(txt.LOG_AUDIO_MISSING)
+    logging.warning(txt.LOG_AUDIO_MISSING)
     pass
 
 # Constants
@@ -127,8 +128,8 @@ def main():
         dragging = False
         selected_piece = None
         drag_pos = None
-        logging.info("Problem %d (%s) %s", index + 1, current_problem['id'],
-                     "restarted" if retry else "started")
+        logging.info("Uppgift %d (%s) %s", index + 1, current_problem['id'],
+                     "börjar om" if retry else "startar")
 
     def finish_problem_move(move):
         """After a completed player move: check the goal, fail, or let the opponent reply."""
@@ -137,7 +138,7 @@ def main():
         success = check_problem_success(current_problem, problem_game, move)
         if success['solved']:
             problem_solved = True
-            logging.info("Problem %s solved", current_problem['id'])
+            logging.info("Uppgift %s löst", current_problem['id'])
             ui.show_violation_popup(success['message'])
             return
 
@@ -169,7 +170,7 @@ def main():
         """The attempt failed: start the same problem again."""
         nonlocal problem_failures, problem_show_hint
         problem_failures += 1
-        logging.info("Problem %s failed attempt %d", current_problem['id'], problem_failures)
+        logging.info("Uppgift %s misslyckat försök %d", current_problem['id'], problem_failures)
         if problem_failures >= 2:
             problem_show_hint = True
         ui.show_violation_popup(txt.PROBLEMS_FAILED)
@@ -239,7 +240,7 @@ def main():
                             if pass_button.collidepoint(mouse_pos):
                                 result = game.pass_turn()
                                 if not result.get('valid'):
-                                    ui.show_violation_popup(result.get('reason', 'Cannot pass turn'))
+                                    ui.show_violation_popup(result.get('reason', txt.ERROR_CANNOT_PASS))
                                 continue
 
                         # Handle piece selection (only if game is ongoing)
@@ -368,9 +369,10 @@ def main():
 
                             if result.get('checkmate'):
                                 winner = result['winner']
-                                ui.show_violation_popup(f"Checkmate! {winner.capitalize()} wins!")
+                                color_name = txt.COLOR_WHITE if winner == 'white' else txt.COLOR_BLACK
+                                ui.show_violation_popup(txt.OUTCOME_CHECKMATE_WINS.format(color=color_name.capitalize()))
                             elif result.get('stalemate'):
-                                ui.show_violation_popup("Stalemate! It's a draw - nobody wins or loses!")
+                                ui.show_violation_popup(txt.OUTCOME_STALEMATE)
                             # continue_play flag already set in game object
 
                             current_state = STATE_PLAYING
@@ -385,7 +387,7 @@ def main():
                         # Save the game
                         name = save_name_input if save_name_input else "game"
                         filepath = game.save_game(name)
-                        print(f"Game saved to {filepath}")
+                        print(txt.LOG_GAME_SAVED.format(path=filepath))
                         current_state = STATE_MENU
                     elif event.key == pygame.K_ESCAPE:
                         current_state = STATE_MENU
@@ -402,7 +404,7 @@ def main():
                     if popup_elements['save_button'].collidepoint(mouse_pos):
                         name = save_name_input if save_name_input else "game"
                         filepath = game.save_game(name)
-                        print(f"Game saved to {filepath}")
+                        print(txt.LOG_GAME_SAVED.format(path=filepath))
                         current_state = STATE_MENU
                     elif popup_elements['cancel_button'].collidepoint(mouse_pos):
                         current_state = STATE_MENU
@@ -423,7 +425,7 @@ def main():
                                 # Load the game
                                 game = ChessGame(options)
                                 game.load_game(button['game']['filepath'])
-                                print(f"Game loaded from {button['game']['filepath']}")
+                                print(txt.LOG_GAME_LOADED.format(path=button['game']['filepath']))
                                 current_state = STATE_PLAYING
                                 break
 
@@ -632,7 +634,7 @@ def main():
         pygame.display.flip()
         clock.tick(FPS)
 
-    logging.info("=== Game exited normally ===")
+    logging.info("=== Spelet avslutades normalt ===")
     pygame.quit()
     sys.exit()
 

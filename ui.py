@@ -1091,7 +1091,7 @@ class ChessUI:
         All positions are derived from font metrics, since fonts scale
         with the window size.
         """
-        from chess_problems import CHESS_PROBLEMS
+        from chess_problems import CHESS_PROBLEMS, CHAPTERS
 
         self.screen.blit(self.background, (0, 0))
         sw, sh = self.screen.get_width(), self.screen.get_height()
@@ -1129,12 +1129,45 @@ class ChessUI:
         colors = {'easy': (150, 220, 150), 'medium': (220, 200, 150), 'hard': (220, 150, 150)}
         diff_labels = {'easy': txt.PROBLEMS_EASY, 'medium': txt.PROBLEMS_MEDIUM, 'hard': txt.PROBLEMS_HARD}
 
+        # Lay out the list: a heading row before the first problem of each chapter
+        intro_lines = {c: self.wrap_text(intro, button_width, self.font_small)
+                       for c, (_, intro) in enumerate(CHAPTERS)}
+
+        def header_height(chapter):
+            return pad * 3 + line_medium + len(intro_lines[chapter]) * line_small
+
+        rows = []  # (kind, y offset, chapter index or problem index)
+        offset = 0
+        last_chapter = None
+        for i, problem in enumerate(CHESS_PROBLEMS):
+            chapter = problem.get('chapter')
+            if chapter is not None and chapter != last_chapter:
+                rows.append(('chapter', offset, chapter))
+                offset += header_height(chapter) + button_spacing
+                last_chapter = chapter
+            rows.append(('problem', offset, i))
+            offset += button_height + button_spacing
+        total_height = offset - button_spacing
+
         problem_buttons = []
         self.screen.set_clip(list_rect)
-        for i, problem in enumerate(CHESS_PROBLEMS):
-            y = list_y_start + i * (button_height + button_spacing) - scroll_offset
-            if y + button_height < list_y_start or y > list_bottom:
+        for kind, row_offset, index in rows:
+            y = list_y_start + row_offset - scroll_offset
+            height = header_height(index) if kind == 'chapter' else button_height
+            if y + height < list_y_start or y > list_bottom:
                 continue
+
+            if kind == 'chapter':
+                name = CHAPTERS[index][0]
+                heading = self._fit_text(f"{txt.PROBLEMS_CHAPTER} {index + 1}: {name}", self.font_medium,
+                                         button_width)
+                self.screen.blit(self.font_medium.render(heading, True, (20, 40, 110)), (button_x, y + pad * 2))
+                for n, line in enumerate(intro_lines[index]):
+                    self.screen.blit(self.font_small.render(line, True, (40, 40, 40)),
+                                     (button_x, y + pad * 2 + line_medium + n * line_small))
+                continue
+
+            i, problem = index, CHESS_PROBLEMS[index]
 
             button_rect = pygame.Rect(button_x, y, button_width, button_height)
             # Only the visible part of a button is clickable
@@ -1162,13 +1195,13 @@ class ChessUI:
         self.screen.set_clip(None)
 
         # Scroll indicators (between header and list, and between list and back button)
-        max_scroll = max(0, len(CHESS_PROBLEMS) * (button_height + button_spacing) - button_spacing - list_height)
+        max_scroll = max(0, total_height - list_height)
         grey = (90, 90, 90)
         if scroll_offset > 0:
-            self._draw_label_with_arrow("Scrolla upp", self.font_small,
+            self._draw_label_with_arrow(txt.PROBLEMS_SCROLL_UP, self.font_small,
                                         (sw // 2, list_y_start - line_small // 2 - pad // 2), 'up', grey)
         if scroll_offset < max_scroll:
-            self._draw_label_with_arrow("Scrolla ner", self.font_small,
+            self._draw_label_with_arrow(txt.PROBLEMS_SCROLL_DOWN, self.font_small,
                                         (sw // 2, list_bottom + pad + line_small // 2), 'down', grey)
 
         # Back button

@@ -105,6 +105,32 @@ def material_balance(board, color):
     return total
 
 
+def attackers_of(game, row, col, color):
+    """Types of color's pieces that attack the square (row, col)."""
+    # Put a stand-in enemy piece on the square so that pawn captures count
+    original = game.board[row][col]
+    game.board[row][col] = {'type': 'pawn', 'color': _opponent(color)}
+    try:
+        return [p['type'] for r, line in enumerate(game.board) for c, p in enumerate(line)
+                if p and p['color'] == color and (r, c) != (row, col)
+                and (row, col) in game.get_pseudo_legal_moves_no_castling(r, c)]
+    finally:
+        game.board[row][col] = original
+
+
+def piece_is_safe(game, row, col):
+    """A piece is safe if nobody attacks it, or if it is defended and every
+    attacker is worth at least as much (taking it would lose material)."""
+    piece = game.board[row][col]
+    enemies = attackers_of(game, row, col, _opponent(piece['color']))
+    if not enemies:
+        return True
+    if not attackers_of(game, row, col, piece['color']):
+        return False
+    value = PIECE_VALUES[piece['type']]
+    return min(100 if t == 'king' else PIECE_VALUES[t] for t in enemies) >= value
+
+
 def opponent_can_mate(game, player):
     """True if the side to move (the player's opponent) has a mating move."""
     opp = _opponent(player)
@@ -141,8 +167,9 @@ def goal_reached(problem, game):
         kind = targets[0]
         if _count(game.board, me, [kind]) < _count(start, me, [kind]):
             return False
-        return not any(p and p['color'] == me and p['type'] == kind and game.is_square_attacked(r, c, opp)
-                       for r, row in enumerate(game.board) for c, p in enumerate(row))
+        return all(piece_is_safe(game, r, c)
+                   for r, row in enumerate(game.board) for c, p in enumerate(row)
+                   if p and p['color'] == me and p['type'] == kind)
     if goal == 'stop_mate':
         return not opponent_can_mate(game, me)
     if goal == 'win_material':

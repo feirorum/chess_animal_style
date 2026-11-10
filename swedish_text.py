@@ -19,7 +19,7 @@ STATUS_CHECKMATE = "SCHACKMATT!"
 STATUS_GAME_OVER = "SPELET SLUT"
 STATUS_DRAW = "Oavgjort!"
 STATUS_WINS = "vinner!"
-STATUS_PASS_TURN = "Passera tur"
+STATUS_PASS_TURN = "Stå över"
 
 # Colors
 COLOR_WHITE = "vit"
@@ -28,11 +28,11 @@ COLOR_BLACK = "svart"
 # Error messages
 ERROR_NOT_YOUR_PIECE = "Det är inte din pjäs!"
 ERROR_IN_CHECK = "Du står i schack! Du måste blockera eller flytta kungen."
-ERROR_INVALID_MOVE = "Ogiltigt drag för denna pjäs"
-ERROR_CASTLE_KINGSIDE = "Kan inte rockera kungssida: fältet är hotat eller vägen blockerad"
-ERROR_CASTLE_QUEENSIDE = "Kan inte rockera damssida: fältet är hotat eller vägen blockerad"
-ERROR_PASS_ONLY_SPECIAL = "Passera är bara tillåtet i specialläge efter schackmatt"
-ERROR_PASS_ONLY_NO_MOVES = "Du kan bara passera när du inte har några giltiga drag"
+ERROR_INVALID_MOVE = "Så kan den pjäsen inte gå"
+ERROR_CASTLE_KINGSIDE = "Du kan inte rockera kort: en ruta är hotad eller vägen är blockerad"
+ERROR_CASTLE_QUEENSIDE = "Du kan inte rockera långt: en ruta är hotad eller vägen är blockerad"
+ERROR_PASS_ONLY_SPECIAL = "Du kan bara stå över i specialläget efter schackmatt"
+ERROR_PASS_ONLY_NO_MOVES = "Du kan bara stå över när du inte har några drag kvar"
 
 # Game outcomes
 OUTCOME_CHECKMATE_CONTINUE = "Schackmatt! {color} står i schack. Kan flytta en annan pjäs eller passera, sedan kan kungen tas."
@@ -41,7 +41,7 @@ OUTCOME_KING_CAPTURED = "Kungen tagen! {color} vinner!"
 OUTCOME_STALEMATE = "Patt! Det är oavgjort - ingen vinner eller förlorar!"
 
 # Promotion
-PROMOTION_TITLE = "Välj befordringspjäs"
+PROMOTION_TITLE = "Vad ska bonden bli?"
 
 # Save/Load
 SAVE_TITLE = "Spara spel"
@@ -106,6 +106,16 @@ PROBLEMS_FAILED = "Inte riktigt. Försök igen!"
 PROBLEMS_HINT = "Tips"
 PROBLEMS_RESET = "Börja om"
 PROBLEMS_NEXT = "Nästa"
+PROBLEMS_CHAPTER = "Kapitel"
+PROBLEMS_SCROLL_UP = "Scrolla upp"
+PROBLEMS_SCROLL_DOWN = "Scrolla ner"
+
+# Meddelanden i konsolen och loggen
+LOG_SOUND_MISSING = "Ljudfiler saknas. Spelet fortsätter utan ljud."
+LOG_AUDIO_MISSING = "Ingen ljudenhet hittades. Spelet körs utan ljud."
+LOG_GAME_SAVED = "Spelet sparades i {path}"
+LOG_GAME_LOADED = "Spelet laddades från {path}"
+ERROR_CANNOT_PASS = "Du kan inte stå över nu"
 PROBLEMS_EASY = "Lätt"
 PROBLEMS_MEDIUM = "Medel"
 PROBLEMS_HARD = "Svår"
@@ -115,7 +125,7 @@ BUTTON_MENU = "Meny"
 
 # Piece names (for descriptions)
 PIECE_PAWN = "bonde"
-PIECE_KNIGHT = "springare"
+PIECE_KNIGHT = "häst"
 PIECE_BISHOP = "löpare"
 PIECE_ROOK = "torn"
 PIECE_QUEEN = "dam"

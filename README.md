@@ -1,60 +1,71 @@
-# Animal Chess Game
+# Djurschack
 
-A fun, cartoon-style chess game where pieces are represented as animals!
+Ett roligt schackspel i tecknad stil där pjäserna är djur!
 
-## Piece Mapping
-- **Queen** = Cat (with crown)
-- **King** = Dog (with crown)
-- **Knight** = Horse
-- **Pawn** = Duckling
-- **Bishop** = Blobfish
-- **Rook** = Book
+## Pjäserna
+- **Dam** = katt (med krona)
+- **Kung** = hund (med krona)
+- **Häst** = häst
+- **Bonde** = ankunge
+- **Löpare** = klumpfisk
+- **Torn** = bok
 
-## Features
-- 2-player local chess game
-- Drag and drop piece movement
-- Visual indicators for valid moves
-- Full chess rules including:
-  - Check and checkmate detection
-  - Castling (kingside and queenside)
-  - En passant
-  - Move validation with helpful error messages
-- Sound effects for check and winning (when audio files are present)
-- Bright, fun animal-themed background
+## Det här finns i spelet
+- Schack för två spelare vid samma dator, eller mot datorn (nivå 1–10)
+- Flytta pjäserna genom att dra dem med musen
+- Gröna markeringar visar vart pjäsen kan gå
+- Alla schackregler: schack och matt, rockad, en passant och patt
+- Förklarande meddelanden när ett drag inte är tillåtet
+- **Schackuppgifter** i tolv kapitel för den som just lärt sig reglerna:
+  slå pjäser, skydda pjäser, schack, ur schack, schackmatt, matt eller patt,
+  bondeförvandling, gaffel, bindning och spett, avtäckt schack, försvar och
+  matt på två drag
+- Ljud vid schack och vinst (om ljudfiler finns)
 
-## Installation
+## Installera
 
-1. Install Python 3.7 or higher
-2. Install dependencies:
+1. Installera Python 3.7 eller nyare
+2. Installera det som behövs:
    ```bash
    pip install -r requirements.txt
    ```
 
-## Running the Game
+## Starta spelet
 
 ```bash
 python main.py
 ```
 
-## How to Play
+Om spelet kraschar skrivs felet till `logs/game.log`.
 
-1. White moves first
-2. Click and drag a piece to move it
-3. Valid move squares will be highlighted in green when you select a piece
-4. If you try an invalid move, a popup will explain why
-5. The game enforces all standard chess rules
+## Så spelar du
 
-## Optional: Adding Sound Effects
+1. Vit börjar
+2. Klicka och dra en pjäs för att flytta den
+3. När du tar upp en pjäs visas de rutor den kan gå till i grönt
+4. Om ett drag inte är tillåtet förklarar en ruta varför
 
-To enable sound effects, add the following WAV files to the `assets/sounds/` directory:
-- `check.wav` - Played when a check occurs
-- `win.wav` - Played when checkmate occurs
+## Schackuppgifter
 
-You can create these sounds or download them from free sound effect websites.
+Välj **Lös schackproblem** i menyn. Varje uppgift har ett mål, en **Tips**-knapp,
+**Börja om** och **Nästa**. Gör du fel börjar uppgiften om, och efter två
+misslyckade försök visas tipset automatiskt.
 
-## Controls
+Alla uppgifter kontrolleras med:
 
-- **Left Mouse Button**: Click and drag to move pieces
-- **Close Window**: Exit the game
+```bash
+python test_problems.py
+```
 
-Enjoy your animal chess adventure!
+## Ljud (valfritt)
+
+Lägg de här WAV-filerna i mappen `assets/sounds/`:
+- `check.wav` – spelas vid schack
+- `win.wav` – spelas vid schackmatt
+
+## Kontroller
+
+- **Vänster musknapp**: klicka och dra för att flytta pjäser
+- **Stäng fönstret**: avsluta spelet
+
+Lycka till med djurschacket!
