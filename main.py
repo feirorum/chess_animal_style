@@ -7,6 +7,34 @@ from chess_problems import CHESS_PROBLEMS
 from problem_checker import check_problem_success
 import swedish_text as txt
 import copy
+import os
+import logging
+import faulthandler
+import traceback
+
+# --- Logging: everything goes to logs/game.log next to this file ---
+LOG_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "logs")
+os.makedirs(LOG_DIR, exist_ok=True)
+LOG_FILE = os.path.join(LOG_DIR, "game.log")
+logging.basicConfig(
+    filename=LOG_FILE,
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(message)s",
+)
+# Hard crashes (segfaults in SDL etc.) are dumped here too
+_fault_file = open(os.path.join(LOG_DIR, "fault.log"), "a")
+faulthandler.enable(file=_fault_file)
+
+
+def _log_uncaught(exc_type, exc, tb):
+    logging.critical("Uncaught exception:\n%s",
+                     "".join(traceback.format_exception(exc_type, exc, tb)))
+    sys.__excepthook__(exc_type, exc, tb)
+
+
+sys.excepthook = _log_uncaught
+logging.info("=== Game starting (pygame %s, python %s) ===",
+             pygame.version.ver, sys.version.split()[0])
 
 # Initialize Pygame
 pygame.init()
@@ -14,6 +42,7 @@ try:
     pygame.mixer.init()
 except pygame.error:
     print("Warning: Audio device not available. Running without sound.")
+    logging.warning("Audio device not available. Running without sound.")
     pass
 
 # Constants
@@ -561,6 +590,7 @@ def main():
         pygame.display.flip()
         clock.tick(FPS)
 
+    logging.info("=== Game exited normally ===")
     pygame.quit()
     sys.exit()
 
