@@ -18,7 +18,7 @@ def check_problem_success(problem, game, last_move=None):
     if condition == 'checkmate':
         # Check if opponent is in checkmate
         opponent_color = 'black' if problem['player_color'] == 'white' else 'white'
-        if game.is_in_checkmate(opponent_color):
+        if game.is_checkmate(opponent_color):
             return {'solved': True, 'message': 'Schackmatt! Problem löst!'}
 
     elif condition == 'check':
