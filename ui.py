@@ -266,8 +266,12 @@ class ChessUI:
 
         return surface
 
-    def draw(self, game, selected_piece, drag_pos, valid_moves):
-        """Draw the entire game state"""
+    def draw(self, game, selected_piece, drag_pos, valid_moves, moving=None):
+        """Draw the entire game state.
+
+        moving: optional {'from': (row, col), 'to': (row, col), 'progress': 0..1}
+        to draw a piece sliding between two squares (the move is not made yet).
+        """
         # Update celebration timers
         self.update_celebrations()
 
@@ -282,7 +286,7 @@ class ChessUI:
             self.draw_valid_moves(valid_moves)
 
         # Draw pieces
-        self.draw_pieces(game.board, selected_piece, drag_pos)
+        self.draw_pieces(game.board, selected_piece, drag_pos, moving)
 
         # Draw game status (handles all cases: ongoing, finished, draw, winner)
         self.draw_game_status(game)
@@ -395,14 +399,16 @@ class ChessUI:
 
         return bounce_height
 
-    def draw_pieces(self, board, selected_piece, drag_pos):
+    def draw_pieces(self, board, selected_piece, drag_pos, moving=None):
         """Draw all pieces on the board"""
         for row in range(8):
             for col in range(8):
                 piece = board[row][col]
                 if piece:
-                    # Skip the piece being dragged
+                    # Skip the piece being dragged or animated
                     if selected_piece and selected_piece == (row, col):
+                        continue
+                    if moving and moving['from'] == (row, col):
                         continue
 
                     piece_key = f"{piece['color']}_{piece['type']}"
@@ -434,6 +440,20 @@ class ChessUI:
                     x = drag_pos[0] - self.square_size // 2
                     y = drag_pos[1] - self.square_size // 2
                     self.screen.blit(piece_img, (x, y))
+
+        # Draw the animated piece on top, gliding from its square to the target
+        if moving:
+            fr, fc = moving['from']
+            tr, tc = moving['to']
+            piece = board[fr][fc]
+            piece_img = self.piece_images.get(f"{piece['color']}_{piece['type']}") if piece else None
+            if piece_img:
+                t = max(0.0, min(1.0, moving['progress']))
+                t = t * t * (3 - 2 * t)  # ease in and out
+                col = fc + (tc - fc) * t
+                row = fr + (tr - fr) * t
+                self.screen.blit(piece_img, (self.board_offset_x + col * self.square_size + 5,
+                                             self.board_offset_y + row * self.square_size + 5))
 
     def draw_valid_moves(self, valid_moves):
         """Draw indicators for valid moves"""
@@ -1181,22 +1201,31 @@ class ChessUI:
         hint_lines = self.wrap_text(problem['hint'], inner, self.font_small) \
             if show_hint and 'hint' in problem else []
 
-        # Buttons: side by side if they fit, otherwise stacked
-        hint_label = self.font_small.render(txt.PROBLEMS_HINT, True, (0, 0, 0))
-        next_label = self.font_small.render("Nästa", True, (0, 0, 0))
+        # Buttons, laid out left to right and wrapped onto new rows when the box is narrow
         arrow = self.font_small.get_height() // 2
         btn_h = line + pad
-        hint_w = hint_label.get_width() + pad * 2
-        next_w = next_label.get_width() + arrow + pad * 3
-        side_by_side = hint_w + next_w + pad <= inner
+        specs = [  # key, label, color, has arrow
+            ('hint_button', txt.PROBLEMS_HINT, (150, 200, 250), False),
+            ('reset_button', txt.PROBLEMS_RESET, (250, 210, 140), False),
+            ('next_button', txt.PROBLEMS_NEXT, (150, 250, 150), True),
+        ]
+        buttons = []
+        bx, by = 0, 0
+        for key, label, color, has_arrow in specs:
+            rendered = self.font_small.render(label, True, (0, 0, 0))
+            w = rendered.get_width() + pad * 2 + (arrow + pad if has_arrow else 0)
+            if bx > 0 and bx + w > inner:
+                bx, by = 0, by + btn_h + pad
+            buttons.append((key, rendered, color, has_arrow, bx, by, w))
+            bx += w + pad
+        buttons_height = by + btn_h
 
         # Box height follows the content
         cy = pad + title.get_height() + pad // 2
         text_top = cy
         cy += len(obj_lines) * line + pad
         buttons_top = cy
-        cy += btn_h if side_by_side else btn_h * 2 + pad
-        cy += pad
+        cy += buttons_height + pad
         hint_top = cy
         cy += len(hint_lines) * line + (pad if hint_lines else 0)
         box_height = cy
@@ -1208,26 +1237,20 @@ class ChessUI:
         for i, l in enumerate(obj_lines):
             self.screen.blit(self.font_small.render(l, True, (50, 50, 50)), (x + pad, y + text_top + i * line))
 
-        hint_button = pygame.Rect(x + pad, y + buttons_top, hint_w, btn_h)
-        if side_by_side:
-            next_button = pygame.Rect(x + box_width - pad - next_w, y + buttons_top, next_w, btn_h)
-        else:
-            next_button = pygame.Rect(x + pad, hint_button.bottom + pad, next_w, btn_h)
-
-        pygame.draw.rect(self.screen, (150, 200, 250), hint_button, border_radius=5)
-        pygame.draw.rect(self.screen, (0, 0, 0), hint_button, 2, border_radius=5)
-        self.screen.blit(hint_label, (hint_button.centerx - hint_label.get_width() // 2,
-                                      hint_button.centery - hint_label.get_height() // 2))
-
-        pygame.draw.rect(self.screen, (150, 250, 150), next_button, border_radius=5)
-        pygame.draw.rect(self.screen, (0, 0, 0), next_button, 2, border_radius=5)
-        self.screen.blit(next_label, (next_button.x + pad, next_button.centery - next_label.get_height() // 2))
-        self._draw_arrow(next_button.right - pad - arrow // 2, next_button.centery, arrow, 'right', (0, 0, 0))
+        rects = {}
+        for key, rendered, color, has_arrow, bx, by, w in buttons:
+            rect = pygame.Rect(x + pad + bx, y + buttons_top + by, w, btn_h)
+            rects[key] = rect
+            pygame.draw.rect(self.screen, color, rect, border_radius=5)
+            pygame.draw.rect(self.screen, (0, 0, 0), rect, 2, border_radius=5)
+            self.screen.blit(rendered, (rect.x + pad, rect.centery - rendered.get_height() // 2))
+            if has_arrow:
+                self._draw_arrow(rect.right - pad - arrow // 2, rect.centery, arrow, 'right', (0, 0, 0))
 
         for i, l in enumerate(hint_lines):
             self.screen.blit(self.font_small.render(l, True, (100, 50, 150)), (x + pad, y + hint_top + i * line))
 
-        return {'hint_button': hint_button, 'next_button': next_button}
+        return rects
 
     def wrap_text(self, text, max_width, font):
         """Wrap text to fit within max_width"""

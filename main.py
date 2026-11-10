@@ -105,17 +105,22 @@ def main():
     promotion_in_problem = False
     promotion_move = None
 
+    # The computer's reply in a problem slides across the board before it is played
+    AI_MOVE_ANIMATION_MS = 700
+    problem_ai_move = None     # (move, start_ticks) while the reply is animating
+
     def start_problem(index, retry=False):
         """Set up problem number index (0-based). retry keeps the failure count and hint."""
         nonlocal current_problem_index, current_problem, problem_game, problem_wrong_moves
         nonlocal problem_show_hint, problem_moves_made, problem_failures, problem_solved
-        nonlocal dragging, selected_piece, drag_pos
+        nonlocal dragging, selected_piece, drag_pos, problem_ai_move
         current_problem_index = index
         current_problem = CHESS_PROBLEMS[index]
         problem_game = setup_problem_game(current_problem, options)
         problem_moves_made = 0
         problem_solved = False
         problem_wrong_moves = 0
+        problem_ai_move = None
         if not retry:
             problem_failures = 0
             problem_show_hint = False
@@ -127,7 +132,7 @@ def main():
 
     def finish_problem_move(move):
         """After a completed player move: check the goal, fail, or let the opponent reply."""
-        nonlocal problem_moves_made, problem_solved, problem_failures, problem_show_hint
+        nonlocal problem_moves_made, problem_solved, problem_ai_move
         problem_moves_made += 1
         success = check_problem_success(current_problem, problem_game, move)
         if success['solved']:
@@ -138,14 +143,31 @@ def main():
 
         out_of_moves = problem_moves_made >= current_problem.get('moves', 1)
         if not out_of_moves and problem_game.game_status == 'ongoing':
-            # Opponent replies
+            # Opponent replies: pick the move now, animate it, play it when the animation ends
             ai_move = ai.get_best_move(problem_game)
             if ai_move:
-                play_move(problem_game, ai_move)
-            if problem_game.game_status == 'ongoing':
+                problem_ai_move = (ai_move, pygame.time.get_ticks())
                 return
+        fail_problem_attempt()
 
-        # Attempt failed: start the same problem again
+    def update_problem_ai_move():
+        """Each frame: play the animated computer move once its animation is finished."""
+        nonlocal problem_ai_move
+        if not problem_ai_move:
+            return None
+        move, started = problem_ai_move
+        progress = (pygame.time.get_ticks() - started) / AI_MOVE_ANIMATION_MS
+        if progress < 1:
+            return {'from': move[:2], 'to': move[2:], 'progress': progress}
+        problem_ai_move = None
+        play_move(problem_game, move)
+        if problem_game.game_status != 'ongoing':
+            fail_problem_attempt()
+        return None
+
+    def fail_problem_attempt():
+        """The attempt failed: start the same problem again."""
+        nonlocal problem_failures, problem_show_hint
         problem_failures += 1
         logging.info("Problem %s failed attempt %d", current_problem['id'], problem_failures)
         if problem_failures >= 2:
@@ -470,24 +492,29 @@ def main():
                             current_problem = None
                             problem_wrong_moves = 0
                             problem_show_hint = False
+                            problem_ai_move = None
                             dragging = False
                             selected_piece = None
                             drag_pos = None
                             continue
 
-                        # Check hint and next buttons
+                        # Check hint, reset and next buttons
                         if current_problem:
                             problem_buttons = ui.draw_problem_objective(current_problem, problem_show_hint)
                             if problem_buttons['hint_button'].collidepoint(mouse_pos):
                                 problem_show_hint = True
+                                continue
+                            elif problem_buttons['reset_button'].collidepoint(mouse_pos):
+                                # Start the same problem over (keeps the hint if it is shown)
+                                start_problem(current_problem_index, retry=True)
                                 continue
                             elif problem_buttons['next_button'].collidepoint(mouse_pos):
                                 # Go to next problem
                                 start_problem((current_problem_index + 1) % len(CHESS_PROBLEMS))
                                 continue
 
-                        # Handle piece selection (only while the problem is unsolved)
-                        if problem_game.game_status == 'ongoing' and not problem_solved:
+                        # Handle piece selection (only while unsolved and the computer is not moving)
+                        if problem_game.game_status == 'ongoing' and not problem_solved and not problem_ai_move:
                             square = ui.get_square_from_pos(mouse_pos)
                             if square:
                                 row, col = square
@@ -591,9 +618,12 @@ def main():
                 row, col = selected_piece
                 valid_moves = problem_game.get_valid_moves(row, col)
 
+            # Advance the computer's animated reply (may play it and change the game)
+            moving = update_problem_ai_move() if problem_game else None
+
             # Draw problem game
             if problem_game:
-                ui.draw(problem_game, selected_piece, drag_pos, valid_moves)
+                ui.draw(problem_game, selected_piece, drag_pos, valid_moves, moving)
                 # Draw problem objective with hint if shown
                 if current_problem:
                     ui.draw_problem_objective(current_problem, problem_show_hint)
